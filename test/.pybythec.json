@@ -1,0 +1,93 @@
+{
+  // "showLinkerCmds": true,
+  "buildType": "debug", // "debug release",
+  "target": "main",
+  "binaryType": "exe",
+  "osType": "windows",
+  "sources": [
+    "main.cpp", // main sequence convert
+    "../source/types/f32x2.cpp",
+    "../source/types/f32x3.cpp",
+    "../source/types/f32x4.cpp",
+    "../source/functions.cpp",
+    "../source/string.cpp",
+    "../source/filesystem.cpp",
+    "../source/Logger.cpp",
+    "../source/Image.cpp",
+    "../source/Text.cpp",
+    "../source/imgUtils.cpp"
+  ],
+  "libs": {
+    "all": [
+      "zlib",
+      "deflate",
+      "jpeg",
+      "spng",
+      "tiff",
+      "tga",
+      "hdrloader",
+      "Iex",
+      "IlmThread",
+      "Imath",
+      "OpenEXRUtil",
+      "OpenEXRCore",
+      "OpenEXR",
+      "freetype",
+      "pystring",
+      "expat",
+      "yaml-cpp",
+      "Half",
+      "OpenColorIO"
+    ],
+    "windows": [
+      "ws2_32",
+      "Secur32",
+      "strmbase",
+      "Mfplat",
+      "mfuuid",
+      "Ole32",
+      "User32",
+      "Bcrypt",
+      "Gdi32"
+    ],
+    "linux": [
+      "dl"
+    ]
+  },
+  "defines": {
+    "all": [
+      "OpenColorIO_SKIP_IMPORTS",
+      "SPNG_STATIC"
+    ],
+    "debug": "GT_DEBUG"
+  },
+  "flags":
+  {
+    "msvc": {"all": "-std:c++17", "debug" : "-MDd", "release" : "-MD"}, // MTd MT, MDd MD
+    "gcc": ["-std=c++17"]
+  },
+  "linkFlags": {
+    "windows": "/NODEFAULTLIB:libcmt.lib"
+  },
+  "incPaths": {
+    "all": [
+      "../include"
+    ]
+  },
+  "extIncPaths": [
+    "$EXTERNAL/include"
+    ,"$EXTERNAL/include/Imath"
+    ,"$EXTERNAL/include/freetype"
+  ],
+
+  "libPaths": {
+    "all": [
+      "$EXTERNAL/lib"
+    ]
+  },
+  "compiler": {
+    "linux": "g++-9.3",
+    "macOs": "clang++",
+    "windows": "msvc-14.2"
+  }
+}

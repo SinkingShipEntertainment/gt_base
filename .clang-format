@@ -1,0 +1,19 @@
+
+BasedOnStyle: Chromium
+
+PointerAlignment: Middle
+
+BreakBeforeBraces: Allman
+
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: false
+AlignOperands:  true
+AllowShortBlocksOnASingleLine: true
+AllowShortFunctionsOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: true
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+
+SpacesInParentheses: false
+SpaceBeforeParens: false
+
+ColumnLimit: 150
