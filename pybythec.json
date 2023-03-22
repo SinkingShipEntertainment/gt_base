@@ -4,7 +4,7 @@
   // "showLinkerCmds": true,
 
   "buildType": "release", // debug release
-  "osType": "windows",
+  // "osType": "windows",
 
   "target": "gt_base",
   "binaryType": "static",
@@ -54,7 +54,7 @@
   },
 
   "compiler": {
-    "linux": "g++-9.3",
+    "linux": "g++",
     "macOs": "clang++",
     "windows": "msvc-14.2"
   }

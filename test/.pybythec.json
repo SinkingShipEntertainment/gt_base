@@ -3,7 +3,7 @@
   "buildType": "debug", // "debug release",
   "target": "main",
   "binaryType": "exe",
-  "osType": "windows",
+  // "osType": "linux",
   "sources": [
     "main.cpp", // main sequence convert
     "../source/types/f32x2.cpp",
@@ -86,7 +86,7 @@
     ]
   },
   "compiler": {
-    "linux": "g++-9.3",
+    "linux": "g++",
     "macOs": "clang++",
     "windows": "msvc-14.2"
   }
