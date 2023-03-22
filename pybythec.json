@@ -42,12 +42,12 @@
       "./include"
     ]
   },
-  "extIncPaths": [
-    "$EXTERNAL/include"
-    ,"$EXTERNAL/include/Imath"
-    ,"$EXTERNAL/include/freetype"
-    ,"$EXTERNAL/include/ffmpeg"
-  ],
+  // "extIncPaths": [
+  //   "$EXTERNAL/include"
+  //   ,"$EXTERNAL/include/Imath"
+  //   ,"$EXTERNAL/include/freetype"
+  //   ,"$EXTERNAL/include/ffmpeg"
+  // ],
 
   "installPath": {
     "all": "$INTERNAL_LIB"
