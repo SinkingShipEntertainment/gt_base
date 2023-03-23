@@ -24,35 +24,42 @@ with scope("config") as c:
     elif release_as == "ext":
         c.release_packages_path = os.environ["SSE_REZ_REPO_RELEASE_EXT"]
 
+    # print('\n***in config scope: {0}\n'.format(os.environ["SSE_REZ_REPO_RELEASE_INT"]))
+
 requires = [
 
 ]
 
 private_build_requires = [
-  'pybythec'
-
-  'libpng',
-  'libjpeg',
-  'libtiff',
-  'libtga' 
+  # 'pybythec',
+  'gcc',
+  # 'libpng',
+  # 'libjpeg',
+  # 'libtiff',
+  # 'libtga' 
   'openexr', # Iex IlmThread Imath OpenEXRUtil OpenEXRCore OpenEXR
-  'pystring',
-  'libexpat',
-  'yaml-cpp',
-  'ocio',
-  'x264',
-  'ffmpeg'
-
+  # 'pystring',
+  # 'libexpat',
+  # 'yaml-cpp',
+  # 'ocio',
+  # 'x264',
   # 'ffmpeg'
 ]
 
 variants = [['platform-linux', 'arch-x86_64', 'os-centos-7']]
 
+uuid = "repository.gt_base"
+
+# # calling this overrides using cmake
+# build_command = 'python {root}/build.py'
+
 def pre_build_commands():
-  print('pre-build commands')
+
+    print('pre-build commands')
+    # import os
+    # os.environ['TESTING'] = ','.join(variants)
+    # command("source /opt/rh/devtoolset-6/enable")
 
 
-def commands():
     
-    env.FFMPEG_INC.append('{root}/python')
 

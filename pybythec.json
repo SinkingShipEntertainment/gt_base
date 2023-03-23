@@ -9,18 +9,18 @@
   "target": "gt_base",
   "binaryType": "static",
   "sources": [
-    "./source/types/f32x2.cpp",
-    "./source/types/f32x3.cpp",
-    "./source/types/f32x4.cpp",
-    "./source/functions.cpp",
-    "./source/string.cpp",
-    "./source/Logger.cpp",
-    "./source/filesystem.cpp",
-    "./source/Image.cpp",
-    "./source/Text.cpp",
-    "./source/Video.cpp",
-    "./source/imgUtils.cpp",
-    "./source/imgUtils3d.cpp"
+    "./source/types/f32x2.cpp"
+    // "./source/types/f32x3.cpp",
+    // "./source/types/f32x4.cpp",
+    // "./source/functions.cpp",
+    // "./source/string.cpp",
+    // "./source/Logger.cpp",
+    // "./source/filesystem.cpp",
+    // "./source/Image.cpp",
+    // "./source/Text.cpp",
+    // "./source/Video.cpp",
+    // "./source/imgUtils.cpp",
+    // "./source/imgUtils3d.cpp"
   ],
 
   "defines": {
@@ -50,7 +50,7 @@
   // ],
 
   "installPath": {
-    "all": "$INTERNAL_LIB"
+    "all": "." // "$INTERNAL_LIB"
   },
 
   "compiler": {
