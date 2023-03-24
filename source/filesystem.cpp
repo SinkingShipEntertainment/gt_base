@@ -3,13 +3,18 @@
 #include "gt_base/types/base.h"
 #include "gt_base/Logger.h"
 #include "gt_base/string.h"
-// #include <filesystem>
-#include <experimental/filesystem>
+
+// #ifdef SSE_CENTOS7
+#if defined(__GNUC__) && __GNUC__ < 8
+  #include <experimental/filesystem>
+  namespace filesystem = std::experimental::filesystem;
+#else
+  #include <filesystem>
+#endif
 
 using namespace gt;
 using namespace std;
 
-namespace filesystem = std::experimental::filesystem;
 
 string const getPadded(u32 num, u8 numDigits)
 {

@@ -8,30 +8,35 @@ set(LIB_NAME gt_base)
 project(${LIB_NAME} VERSION $ENV{REZ_BUILD_PROJECT_VERSION} LANGUAGES CXX)
 
 add_library(${LIB_NAME} SHARED
-    # include/gt_base/base.h
-    # include/gt_base/string.h
+    source/types/f32x2.cpp
+    source/types/f32x3.cpp
+    source/types/f32x4.cpp
     source/string.cpp
     source/filesystem.cpp
-    # filesystem.h
     source/functions.cpp
-    # functions.h
-    # Image.cpp
-    # Image.h`
+    source/Logger.cpp
+    source/Image.cpp
+    source/imgUtils.cpp
+    # source/Text.cpp
+    source/Video.cpp
 )
+
+add_compile_definitions(SSE_CENTOS7)
 
 target_include_directories(${LIB_NAME}
     PRIVATE
         ./include
     # TODO: figure out how to use the packages / variants to resolve paths
     PUBLIC
+        /mnt/rez/release/ext/libjpeg/9.2/platform-linux/arch-x86_64/os-centos-7/include
+        /mnt/rez/release/ext/libpng/1.6.29/platform-linux/arch-x86_64/os-centos-7/include
         /mnt/rez/release/ext/openexr/3.1.5/platform-linux/arch-x86_64/os-centos-7/include
-        /mnt/rez/release/ext/openexr/3.1.5/platform-linux/arch-x86_64/os-centos-7/include
-        # ./include
+        /mnt/rez/release/ext/openexr/3.1.5/platform-linux/arch-x86_64/os-centos-7/include/Imath
+        /mnt/rez/release/ext/ocio/2.1.1/platform-linux/arch-x86_64/os-centos-7/python-3.9.7/include
+        /mnt/rez/release/ext/ffmpeg/5.0.1/platform-linux/arch-x86_64/os-centos-7/include
 )
 
 # find_package(openexr REQUIRED)
-
-# set()
 
 # target_link_libraries(${LIB_NAME}
     # ar

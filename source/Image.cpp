@@ -7,11 +7,16 @@
 #if USING_VULKAN
   #include "RenderUtils.h"
 #endif
-#include <jpeg/jpeglib.h>
-#include <spng.h>
-#include <tiff/tiffio.h>
-#include <tga.h>
-#include <hdrloader.h>
+#include <jpeglib.h>
+#ifdef SSE_CENTOS7
+  #include <png.h> 
+#else
+  #include <spng.h>
+  #include <tga.h>
+  #include <tiff/tiffio.h>
+  #include <hdrloader.h>
+#endif
+
 #include <OpenEXR/ImfInputFile.h>
 #include <OpenEXR/ImfOutputFile.h>
 #include <OpenEXR/ImfHeader.h>
@@ -20,8 +25,14 @@
 #include <OpenEXR/ImfChannelList.h>
 #include <OpenEXR/ImfFrameBuffer.h>
 
-// #include <boost/filesystem.hpp>  /// < C++17 
-#include <filesystem>
+#if defined(__GNUC__) && __GNUC__ < 8
+  #include <experimental/filesystem>
+  namespace filesystem = std::experimental::filesystem;
+#else
+  #include <filesystem> /// C++17 
+#endif
+// #include <boost/filesystem.hpp>  
+
 #include <stdexcept>
 #include <array>
 #include <algorithm>
@@ -1251,6 +1262,20 @@ void Image::read(string const & filepath, vector<string> attrNames, vector<strin
     fclose(infile);
   }
 
+#if defined(SSE_CENTOS7)
+
+  /// TOOD: the traditional implementation of png
+  // else if(ext == ".png")
+  // {
+  //   FILE * fp = fopen(filepath.c_str(), "rb");
+  //   if(!fp) 
+  //   {
+  //     throw runtime_error(f("fopen failed for %") % filepath);
+  //   }
+  // }
+
+#else
+
   else if(ext == ".png")
   {
     FILE * fp = fopen(filepath.c_str(), "rb");
@@ -1340,25 +1365,6 @@ void Image::read(string const & filepath, vector<string> attrNames, vector<strin
     TIFFClose(tifFile);
   }
 
-  else if(ext == ".hdr")
-  {
-    HDRLoaderResult r;
-    HDRLoader::load(filepath.c_str(), r);
-
-    this->width = r.width;
-    this->height = r.height;
-    this->numComps = 3;
-    this->bytesPerComp = 4;
-    this->type = Image::FP;
-    this->alloc();
-
-    memcpy(&this->data[0], &r.cols[0], this->bytesTotal);
-
-    delete [] r.cols;
-
-    this->flipVertical(); /// TODO: improve this
-  }
-
   else if(ext == ".tga" || ext == ".TGA")
   {
     FILE * file = std::fopen(filepath.c_str(), "rb");
@@ -1396,6 +1402,27 @@ void Image::read(string const & filepath, vector<string> attrNames, vector<strin
       this->flipVertical();
     // }
   }
+
+  else if(ext == ".hdr")
+  {
+    HDRLoaderResult r;
+    HDRLoader::load(filepath.c_str(), r);
+
+    this->width = r.width;
+    this->height = r.height;
+    this->numComps = 3;
+    this->bytesPerComp = 4;
+    this->type = Image::FP;
+    this->alloc();
+
+    memcpy(&this->data[0], &r.cols[0], this->bytesTotal);
+
+    delete [] r.cols;
+
+    this->flipVertical(); /// TODO: improve this
+  }
+
+#endif
 }
 
 void Image::write(string const & filepath)

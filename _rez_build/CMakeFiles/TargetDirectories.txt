@@ -1,7 +1,0 @@
-/home/tomsirdevan/dev/gt_base/_rez_build/CMakeFiles/install/strip.dir
-/home/tomsirdevan/dev/gt_base/_rez_build/CMakeFiles/install/local.dir
-/home/tomsirdevan/dev/gt_base/_rez_build/CMakeFiles/install.dir
-/home/tomsirdevan/dev/gt_base/_rez_build/CMakeFiles/list_install_components.dir
-/home/tomsirdevan/dev/gt_base/_rez_build/CMakeFiles/rebuild_cache.dir
-/home/tomsirdevan/dev/gt_base/_rez_build/CMakeFiles/edit_cache.dir
-/home/tomsirdevan/dev/gt_base/_rez_build/CMakeFiles/gt_base.dir
