@@ -23,6 +23,21 @@ add_library(${LIB_NAME} SHARED
 
 add_compile_definitions(SSE_CENTOS7)
 
+add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
+
+# set_target_properties(${LIB_NAME} PROPERTIES
+#     CXX_STANDARD 14
+#     CXX_STANDARD_REQUIRED ON
+#     CXX_EXTENSIONS OFF
+# )
+
+# set(CMAKE_CXX_STANDARD 14)
+# set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# set(CMAKE_CXX_EXTENSIONS OFF)
+
+# add_compile_definitions(std=c++14)
+# add_definitions(std=c++14) # std=c++11  std=gnu++11
+
 target_include_directories(${LIB_NAME}
     PRIVATE
         ./include
