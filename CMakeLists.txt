@@ -21,9 +21,13 @@ add_library(${LIB_NAME} SHARED
     source/Video.cpp
 )
 
-add_compile_definitions(SSE_CENTOS7)
+add_compile_definitions(
+    SSE_CENTOS7
+    _GLIBCXX_USE_CXX11_ABI=0
+)
 
-add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
+
+# add_definitions(-D_GLIBCXX_USE_CXX11_ABI=0)
 
 # set_target_properties(${LIB_NAME} PROPERTIES
 #     CXX_STANDARD 14
@@ -53,10 +57,19 @@ target_include_directories(${LIB_NAME}
 
 # find_package(openexr REQUIRED)
 
-# target_link_libraries(${LIB_NAME}
-    # ar
-#     sdf
-# )
+
+target_link_directories(${LIB_NAME}
+    PUBLIC
+        /home/tomsirdevan/rez/local/gt_base/0.1.0/platform-linux/arch-x86_64/os-centos-7
+        /mnt/rez/release/ext/ocio/2.1.1/platform-linux/arch-x86_64/os-centos-7/python-3.9.7/lib64
+        /mnt/rez/release/ext/libjpeg/9.2/platform-linux/arch-x86_64/os-centos-7/lib
+        /mnt/rez/release/ext/openexr/3.1.5/platform-linux/arch-x86_64/os-centos-7/lib64
+        /mnt/rez/release/ext/ffmpeg/5.0.1/platform-linux/arch-x86_64/os-centos-7/lib
+        /mnt/rez/release/ext/x264/stable.sse.1.0.1/platform-linux/arch-x86_64/os-centos-7/lib
+        /opt/rh/devtoolset-6/root/usr/lib/gcc/x86_64-redhat-linux/6.3.1
+        /usr/lib64
+)
+
 
 target_compile_features(${LIB_NAME}
     PUBLIC
