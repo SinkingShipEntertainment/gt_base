@@ -20,11 +20,18 @@ with scope("config") as c: # 'c' is from rezconfig.py
         c.release_packages_path = os.environ["SSE_REZ_REPO_RELEASE_EXT"]
 
 requires = [
+  "openexr-3",
+  "libspng",
+  "tga",
+  "freetype",
+  "libjpeg",
+  "ocio-2",
+  "x264",
+  "ffmpeg",
 ]
 
 private_build_requires = [
   # 'pybythec'
-  'gcc'
 ]
 
 variants = [['platform-linux', 'arch-x86_64', 'os-centos-7']]
@@ -35,9 +42,4 @@ uuid = "repository.gt_base"
 # build_command = 'python {root}/build.py'
 
 def pre_build_commands():
-
-    print('pre-build commands')
-
-
-    
-
+  command("source /opt/rh/devtoolset-6/enable")

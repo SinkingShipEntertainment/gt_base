@@ -7,6 +7,65 @@ set(LIB_NAME gt_base)
 
 project(${LIB_NAME} VERSION $ENV{REZ_BUILD_PROJECT_VERSION} LANGUAGES CXX)
 
+
+# =======================================================
+# Appending our own Cmake files
+LIST (APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
+LIST (APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/macros")
+
+include(utils)
+
+# ------------------------------------------------------
+# Find packages
+
+# OpenEXR
+find_package(OpenEXR)
+if(OpenEXR_FOUND)
+    message("OpenEXR found")
+endif()
+
+# SPNG
+include(FindSPNG)
+if(SPNG_FOUND)
+    message("SPNG found")
+endif()
+
+# TGA
+find_package(TGA)
+if(TGA_FOUND)
+    message("TGA found")
+endif()
+
+# Freetype
+find_package(Freetype)
+if(FREETYPE_FOUND)
+    message("FreeType found")
+endif()
+
+# libjpeg
+find_package(JPEG)
+if(LIBJPEG_FOUND)
+    message("libjpeg found")
+endif()
+
+# OCIO
+find_package(OpenColorIO)
+if(OpenColorIO_FOUND)
+    message("OCIO found")
+endif()
+
+# Print Cmake variables
+# dump_cmake_variables()
+dump_cmake_variables("OCIO")
+dump_cmake_variables("SPNG")
+dump_cmake_variables("TGA")
+dump_cmake_variables("JPEG")
+dump_cmake_variables("FFMPEG")
+dump_cmake_variables("OPENEXR")
+dump_cmake_variables("ILMBASE")
+
+
+
 add_library(${LIB_NAME} SHARED
     source/types/f32x2.cpp
     source/types/f32x3.cpp
@@ -47,11 +106,13 @@ target_include_directories(${LIB_NAME}
         ./include
     # TODO: figure out how to use the packages / variants to resolve paths
     PUBLIC
+        ${ILMBASE_INCLUDE_PATH}
+        ${OPENEXR_INCLUDE_PATH}
+        ${OPENEXR_INCLUDE_PATH}/Imath
+        ${OCIO_INCLUDE_DIR}
+        ${SPNG_SPNG_INCLUDE_DIR}
+        ${TGA_INCLUDE_DIR}
         /mnt/rez/release/ext/libjpeg/9.2/platform-linux/arch-x86_64/os-centos-7/include
-        /mnt/rez/release/ext/libpng/1.6.29/platform-linux/arch-x86_64/os-centos-7/include
-        /mnt/rez/release/ext/openexr/3.1.5/platform-linux/arch-x86_64/os-centos-7/include
-        /mnt/rez/release/ext/openexr/3.1.5/platform-linux/arch-x86_64/os-centos-7/include/Imath
-        /mnt/rez/release/ext/ocio/2.1.1/platform-linux/arch-x86_64/os-centos-7/python-3.9.7/include
         /mnt/rez/release/ext/ffmpeg/5.0.1/platform-linux/arch-x86_64/os-centos-7/include
 )
 
@@ -60,14 +121,12 @@ target_include_directories(${LIB_NAME}
 
 target_link_directories(${LIB_NAME}
     PUBLIC
+        ${OCIO_LIBRARIES}
         /home/tomsirdevan/rez/local/gt_base/0.1.0/platform-linux/arch-x86_64/os-centos-7
-        /mnt/rez/release/ext/ocio/2.1.1/platform-linux/arch-x86_64/os-centos-7/python-3.9.7/lib64
         /mnt/rez/release/ext/libjpeg/9.2/platform-linux/arch-x86_64/os-centos-7/lib
         /mnt/rez/release/ext/openexr/3.1.5/platform-linux/arch-x86_64/os-centos-7/lib64
         /mnt/rez/release/ext/ffmpeg/5.0.1/platform-linux/arch-x86_64/os-centos-7/lib
         /mnt/rez/release/ext/x264/stable.sse.1.0.1/platform-linux/arch-x86_64/os-centos-7/lib
-        /opt/rh/devtoolset-6/root/usr/lib/gcc/x86_64-redhat-linux/6.3.1
-        /usr/lib64
 )
 
 
