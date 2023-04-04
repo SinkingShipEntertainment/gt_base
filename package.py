@@ -20,12 +20,12 @@ with scope("config") as c: # 'c' is from rezconfig.py
         c.release_packages_path = os.environ["SSE_REZ_REPO_RELEASE_EXT"]
 
 requires = [
-  "openexr-3",
+  "libjpeg",
   "libspng",
   "tga",
-  "freetype",
-  "libjpeg",
+  "openexr-3",
   "ocio-2",
+  "freetype",
   "x264",
   "ffmpeg",
 ]
@@ -43,3 +43,7 @@ uuid = "repository.gt_base"
 
 def pre_build_commands():
   command("source /opt/rh/devtoolset-6/enable")
+
+  print('\nusing g++ version:')
+  import subprocess
+  subprocess.call(['g++', '--version'])

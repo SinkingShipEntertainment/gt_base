@@ -7,16 +7,18 @@
 #if USING_VULKAN
   #include "RenderUtils.h"
 #endif
-#include <jpeglib.h>
+
 #ifdef SSE_CENTOS7
-  #include <png.h> 
+  #include <setjmp.h>
+//   #include <png.h> 
 #else
-  #include <spng.h>
-  #include <tga.h>
   #include <tiff/tiffio.h>
   #include <hdrloader.h>
 #endif
 
+#include <jpeglib.h>
+#include <spng.h>
+#include <tga.h>
 #include <OpenEXR/ImfInputFile.h>
 #include <OpenEXR/ImfOutputFile.h>
 #include <OpenEXR/ImfHeader.h>
@@ -1264,17 +1266,75 @@ void Image::read(string const & filepath, vector<string> attrNames, vector<strin
 
 #if defined(SSE_CENTOS7)
 
-  /// TOOD: the traditional implementation of png
-  // else if(ext == ".png")
-  // {
-  //   FILE * fp = fopen(filepath.c_str(), "rb");
-  //   if(!fp) 
-  //   {
-  //     throw runtime_error(f("fopen failed for %") % filepath);
-  //   }
-  // }
+//   /// TOOD: the traditional implementation of png
+//   // else if(ext == ".png")
+//   // {
+//   //   FILE * fp = fopen(filepath.c_str(), "rb");
+//   //   if(!fp) 
+//   //   {
+//   //     throw runtime_error(f("fopen failed for %") % filepath);
+//   //   }
+//   // }
 
 #else
+
+
+  else if(ext == ".tif" || ext == ".tiff")
+  {
+    TIFF * tifFile = TIFFOpen(filepath.c_str(), "r");
+
+    TIFFRGBAImage tImg;
+    char emsg[1024];
+    if(!TIFFRGBAImageBegin(&tImg, tifFile, 0, emsg)) 
+    {
+      throw runtime_error(f("TIFFRGBAImageBegin failed for %") % filepath);
+    }
+
+    this->width = tImg.width;
+    this->height = tImg.height;
+    this->numComps = tImg.samplesperpixel;
+    if(this->numComps == 1) this->numComps = 2; /// NOTE: TIFFRGBAImageGet was crashing but I had a couple of beers in me and tried this whacky hail mary and it worked
+    
+    this->bytesPerComp = 1; /// from the docs: "TIFFRGBAImageGet converts non-8-bit images by scaling sample values"
+
+    if(this->numComps < 3 && tImg.bitspersample > 8)
+    {
+      this->bytesPerComp = tImg.bitspersample / 8; /// but seems that it will still be 16bits if not rgb or rgba
+    }
+    
+    this->type = Image::UINT;
+    
+    this->alloc();
+
+    if(!TIFFRGBAImageGet(&tImg, reinterpret_cast<uint32_t *>(this->data), this->width, this->height))
+    {
+      throw runtime_error(f("TIFFRGBAImageGet failed for %") % filepath);
+    }
+
+    TIFFRGBAImageEnd(&tImg);
+    TIFFClose(tifFile);
+  }
+
+  else if(ext == ".hdr")
+  {
+    HDRLoaderResult r;
+    HDRLoader::load(filepath.c_str(), r);
+
+    this->width = r.width;
+    this->height = r.height;
+    this->numComps = 3;
+    this->bytesPerComp = 4;
+    this->type = Image::FP;
+    this->alloc();
+
+    memcpy(&this->data[0], &r.cols[0], this->bytesTotal);
+
+    delete [] r.cols;
+
+    this->flipVertical(); /// TODO: improve this
+  }
+
+#endif
 
   else if(ext == ".png")
   {
@@ -1329,42 +1389,6 @@ void Image::read(string const & filepath, vector<string> attrNames, vector<strin
     spng_ctx_free(ctx);
   }
 
-  else if(ext == ".tif" || ext == ".tiff")
-  {
-    TIFF * tifFile = TIFFOpen(filepath.c_str(), "r");
-
-    TIFFRGBAImage tImg;
-    char emsg[1024];
-    if(!TIFFRGBAImageBegin(&tImg, tifFile, 0, emsg)) 
-    {
-      throw runtime_error(f("TIFFRGBAImageBegin failed for %") % filepath);
-    }
-
-    this->width = tImg.width;
-    this->height = tImg.height;
-    this->numComps = tImg.samplesperpixel;
-    if(this->numComps == 1) this->numComps = 2; /// NOTE: TIFFRGBAImageGet was crashing but I had a couple of beers in me and tried this whacky hail mary and it worked
-    
-    this->bytesPerComp = 1; /// from the docs: "TIFFRGBAImageGet converts non-8-bit images by scaling sample values"
-
-    if(this->numComps < 3 && tImg.bitspersample > 8)
-    {
-      this->bytesPerComp = tImg.bitspersample / 8; /// but seems that it will still be 16bits if not rgb or rgba
-    }
-    
-    this->type = Image::UINT;
-    
-    this->alloc();
-
-    if(!TIFFRGBAImageGet(&tImg, reinterpret_cast<uint32_t *>(this->data), this->width, this->height))
-    {
-      throw runtime_error(f("TIFFRGBAImageGet failed for %") % filepath);
-    }
-
-    TIFFRGBAImageEnd(&tImg);
-    TIFFClose(tifFile);
-  }
-
   else if(ext == ".tga" || ext == ".TGA")
   {
     FILE * file = std::fopen(filepath.c_str(), "rb");
@@ -1402,27 +1426,6 @@ void Image::read(string const & filepath, vector<string> attrNames, vector<strin
       this->flipVertical();
     // }
   }
-
-  else if(ext == ".hdr")
-  {
-    HDRLoaderResult r;
-    HDRLoader::load(filepath.c_str(), r);
-
-    this->width = r.width;
-    this->height = r.height;
-    this->numComps = 3;
-    this->bytesPerComp = 4;
-    this->type = Image::FP;
-    this->alloc();
-
-    memcpy(&this->data[0], &r.cols[0], this->bytesTotal);
-
-    delete [] r.cols;
-
-    this->flipVertical(); /// TODO: improve this
-  }
-
-#endif
 }
 
 void Image::write(string const & filepath)
