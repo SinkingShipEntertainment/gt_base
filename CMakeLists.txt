@@ -7,9 +7,6 @@ set(LIB_NAME gt_base)
 
 project(${LIB_NAME} VERSION $ENV{REZ_BUILD_PROJECT_VERSION} LANGUAGES CXX)
 
-
-# =======================================================
-# Appending our own Cmake files
 LIST (APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 LIST (APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/macros")
 
@@ -19,12 +16,12 @@ include(utils)
 # Find packages
 
 find_package(JPEG)
-if(LIBJPEG_FOUND)
+if(JPEG_FOUND)
     message("JPEG found")
-    dump_cmake_variables("JPEG")
+    # dump_cmake_variables("JPEG")
 endif()
 
-include(FindSPNG)
+find_package(SPNG)
 if(SPNG_FOUND)
     message("SPNG found")
 endif()
@@ -42,28 +39,20 @@ endif()
 find_package(OpenColorIO)
 if(OpenColorIO_FOUND)
     message("OCIO found")
+    # dump_cmake_variables("OCIO")
 endif()
 
 find_package(Freetype)
 if(FREETYPE_FOUND)
     message("FreeType found")
+    # dump_cmake_variables("FREETYPE")
 endif()
 
-find_package(FFMPEG) # FFMPEG ffmpeg Ffmpeg
+find_package(FFMPEG)
 if(FFMPEG_FOUND)
-    message("ffmpeg found")
+    message("FFMPEG found")
+    # dump_cmake_variables("FFMPEG")
 endif()
-
-
-# dump_cmake_variables()
-
-# dump_cmake_variables("JPEG")
-# dump_cmake_variables("SPNG")
-# dump_cmake_variables("TGA")
-# dump_cmake_variables("ILMBASE")
-# dump_cmake_variables("OPENEXR")
-# dump_cmake_variables("OCIO")
-dump_cmake_variables("FFMPEG")
 
 
 add_library(${LIB_NAME} STATIC # SHARED
@@ -86,6 +75,8 @@ add_compile_definitions(
     # OpenColorIO_SKIP_IMPORTS
 )
 
+add_compile_options(-fPIC)
+# SET(GCC_COVERAGE_COMPILE_FLAGS "-fPIC")
 
 target_include_directories(${LIB_NAME}
     PRIVATE
@@ -124,6 +115,13 @@ target_include_directories(${LIB_NAME}
 set(libraryName ${LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX})
 
 # Install library
+
+install(
+    DIRECTORY include/
+    DESTINATION include
+)
+
+
 install(
     TARGETS ${LIB_NAME}
     LIBRARY DESTINATION .

@@ -10,41 +10,32 @@ authors = [
 ]
 
 with scope("config") as c: # 'c' is from rezconfig.py
+  import os
+  c.release_packages_path = os.environ["SSE_REZ_REPO_RELEASE_INT"]
 
-    release_as = "int"
-
-    import os
-    if release_as == "int":
-        c.release_packages_path = os.environ["SSE_REZ_REPO_RELEASE_INT"]
-    elif release_as == "ext":
-        c.release_packages_path = os.environ["SSE_REZ_REPO_RELEASE_EXT"]
-
-# requires = [
-#   "libjpeg",
-#   "libspng",
-#   "tga",
-#   "openexr-3",
-#   "ocio-2",
-#   "freetype",
-#   "x264",
-#   "ffmpeg",
-# ]
-
-private_build_requires = [
-  'pybythec'
+requires = [
+  "libjpeg",
+  "libspng",
+  "tga",
+  "openexr-3",
+  "ocio-2",
+  "freetype",
+  "x264",
+  "ffmpeg",
 ]
 
 variants = [['platform-linux', 'arch-x86_64', 'os-centos-7']]
 
 uuid = "repository.gt_base"
 
-# calling build_command overrides using cmake
-# variants_str = 
+# private_build_requires = [
+#   'pybythec'
+# ]
 
-build_command = 'python {root}/build.py "' + '|'.join(variants[0]) + '"'
+# build_command = 'python {root}/build.py "' + '|'.join(variants[0]) + '"'
 
-# def pre_build_commands():
-  # command("source /opt/rh/devtoolset-6/enable")
+def pre_build_commands():
+  command("source /opt/rh/devtoolset-6/enable")
 
   # print('\nusing g++ version:')
   # import subprocess
