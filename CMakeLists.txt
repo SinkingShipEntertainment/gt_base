@@ -20,7 +20,8 @@ include(utils)
 
 find_package(JPEG)
 if(LIBJPEG_FOUND)
-    message("libjpeg found")
+    message("JPEG found")
+    dump_cmake_variables("JPEG")
 endif()
 
 include(FindSPNG)
@@ -54,7 +55,6 @@ if(FFMPEG_FOUND)
 endif()
 
 
-# Print Cmake variables
 # dump_cmake_variables()
 
 # dump_cmake_variables("JPEG")
@@ -66,7 +66,7 @@ endif()
 dump_cmake_variables("FFMPEG")
 
 
-add_library(${LIB_NAME} SHARED
+add_library(${LIB_NAME} STATIC # SHARED
     source/types/f32x2.cpp
     source/types/f32x3.cpp
     source/types/f32x4.cpp
@@ -119,7 +119,9 @@ target_include_directories(${LIB_NAME}
 #         cxx_range_for
 # )
 
-set(libraryName ${LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+# set(libraryName ${LIB_NAME}${CMAKE_SHARED_LIBRARY_SUFFIX})
+
+set(libraryName ${LIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX})
 
 # Install library
 install(

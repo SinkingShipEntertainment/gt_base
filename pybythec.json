@@ -26,7 +26,8 @@
   "defines": {
     "all": [
       "OpenColorIO_SKIP_IMPORTS",
-      "SPNG_STATIC"
+      "SPNG_STATIC",
+      "SSE_CENTOS7"
     ],
     "debug": "GT_DEBUG",
     "windows": ["WINDOWS", "OSWin_", "WIN32"]
@@ -43,10 +44,20 @@
     ]
   },
   "extIncPaths": [
-    "$EXTERNAL/include"
-    ,"$EXTERNAL/include/Imath"
-    ,"$EXTERNAL/include/freetype"
-    ,"$EXTERNAL/include/ffmpeg"
+    "$EXTERNAL/libjpeg/9.2/$VARIANT/include"
+    ,"$EXTERNAL/libspng/0.7.3.sse.1.0.1/$VARIANT/include"
+    ,"$EXTERNAL/tga/1.0.0.sse.1.0.1/$VARIANT/include"
+    ,"$EXTERNAL/openexr/3.1.5/$VARIANT/include"
+    ,"$EXTERNAL/openexr/3.1.5/$VARIANT/include/Imath"
+    ,"$EXTERNAL/ocio/2.1.1/$VARIANT/python-3.9.7/include"
+    ,"$EXTERNAL/freetype/2.13.0/$VARIANT/libspng/python-3.9/include/freetype2"
+    ,"$EXTERNAL/x264/stable.sse.1.0.1/$VARIANT/include"
+    ,"$EXTERNAL/ffmpeg/5.0.1/$VARIANT/include"
+
+    // "$EXTERNAL/include"
+    // ,"$EXTERNAL/include/Imath"
+    // ,"$EXTERNAL/include/freetype"
+    // ,"$EXTERNAL/include/ffmpeg"
   ],
 
   "installPath": {
