@@ -15,8 +15,8 @@ def build_direct():
 def main():
     '''
     '''
-    print('doin thangs')
 
+    # print(sys.argv)
     variants = sys.argv[1].split('|')
 
     rel_path = '../'
@@ -36,9 +36,8 @@ def main():
     os.environ['EXTERNAL'] = '/mnt/rez/release/ext'
     os.environ['VARIANT'] = '/'.join(variants)
 
-    # print(sys.argv)
-
     pybythec.build()
+    
 
 if __name__ == '__main__':
 
