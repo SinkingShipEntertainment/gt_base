@@ -27,7 +27,8 @@
     "all": [
       "OpenColorIO_SKIP_IMPORTS",
       "SPNG_STATIC",
-      "SSE_CENTOS7"
+      "SSE_CENTOS7",
+      // "ORCA_ARNOLD"
     ],
     "debug": "GT_DEBUG",
     "windows": ["WINDOWS", "OSWin_", "WIN32"]
@@ -44,7 +45,8 @@
     ]
   },
   "extIncPaths": [
-    "$EXTERNAL/libjpeg/9.2/$VARIANT/include"
+    "/home/tomsirdevan/dev/external"
+    ,"$EXTERNAL/libjpeg/9.2/$VARIANT/include"
     ,"$EXTERNAL/libspng/0.7.3.sse.1.0.1/$VARIANT/include"
     ,"$EXTERNAL/tga/1.0.0.sse.1.0.1/$VARIANT/include"
     ,"$EXTERNAL/openexr/3.1.5/$VARIANT/include"
@@ -61,7 +63,7 @@
   ],
 
   "installPath": {
-    "all": "." // "$INTERNAL_LIB"
+    "all": "./bin" // "$INTERNAL_LIB"
   },
 
   "compiler": {

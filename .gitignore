@@ -25,3 +25,4 @@ __pycache__/
 .pybythec/
 .autogen/
 _rez_build/
+bin/

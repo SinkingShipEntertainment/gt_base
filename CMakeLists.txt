@@ -50,7 +50,8 @@ add_compile_definitions(
     _GLIBCXX_USE_CXX11_ABI=0
 )
 
-add_compile_options(-fPIC)
+# add_compile_options(-fPIC)
+# set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 target_include_directories(${LIB_NAME}
     PRIVATE

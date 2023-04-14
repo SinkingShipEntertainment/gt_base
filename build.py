@@ -26,7 +26,7 @@ def main():
     os.chdir(rel_path) # if called with 'rez-build -i' will be _rez_build dir so go up one 
     print(f'cwd: {os.getcwd()}')
 
-    os.environ['PYBYTHEC_LOCAL'] = './pybythec.json' 
+    # os.environ['PYBYTHEC_LOCAL'] = './pybythec.json' 
 
     # print(f'PYBYTHEC_GLOBALS: {os.environ["PYBYTHEC_GLOBALS"]}')   
 
@@ -41,5 +41,5 @@ def main():
 
 if __name__ == '__main__':
 
-    build_direct()
-    # main()
+    # build_direct()
+    main()
