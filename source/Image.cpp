@@ -7,11 +7,18 @@
 #if USING_VULKAN
   #include "RenderUtils.h"
 #endif
-#include <jpeg/jpeglib.h>
+
+#ifdef SSE_CENTOS7
+  #include <setjmp.h>
+//   #include <png.h> 
+#else
+  #include <tiff/tiffio.h>
+  #include <hdrloader.h>
+#endif
+
+#include <jpeglib.h>
 #include <spng.h>
-#include <tiff/tiffio.h>
 #include <tga.h>
-#include <hdrloader.h>
 #include <OpenEXR/ImfInputFile.h>
 #include <OpenEXR/ImfOutputFile.h>
 #include <OpenEXR/ImfHeader.h>
@@ -20,8 +27,14 @@
 #include <OpenEXR/ImfChannelList.h>
 #include <OpenEXR/ImfFrameBuffer.h>
 
-// #include <boost/filesystem.hpp>  /// < C++17 
-#include <filesystem>
+#if defined(__GNUC__) && __GNUC__ < 8
+  #include <experimental/filesystem>
+  namespace filesystem = std::experimental::filesystem;
+#else
+  #include <filesystem> /// C++17 
+#endif
+// #include <boost/filesystem.hpp>  
+
 #include <stdexcept>
 #include <array>
 #include <algorithm>
@@ -1251,58 +1264,20 @@ void Image::read(string const & filepath, vector<string> attrNames, vector<strin
     fclose(infile);
   }
 
-  else if(ext == ".png")
-  {
-    FILE * fp = fopen(filepath.c_str(), "rb");
-    if(!fp) 
-    {
-      throw runtime_error(f("fopen failed for %") % filepath);
-    }
+#if defined(SSE_CENTOS7)
 
-    spng_ctx * ctx = spng_ctx_new(0);
-    if(!ctx) throw runtime_error("spng_ctx_new failed");
-  
-    spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
+//   /// TOOD: the traditional implementation of png
+//   // else if(ext == ".png")
+//   // {
+//   //   FILE * fp = fopen(filepath.c_str(), "rb");
+//   //   if(!fp) 
+//   //   {
+//   //     throw runtime_error(f("fopen failed for %") % filepath);
+//   //   }
+//   // }
 
-    size_t const limit = 1024 * 1024 * 64;
-    spng_set_chunk_limits(ctx, limit, limit);
-    
-    spng_set_png_file(ctx, fp);
+#else
 
-    struct spng_ihdr ihdr;
-    i32 ret = spng_get_ihdr(ctx, &ihdr);
-    if(ret > 0)
-    {
-      throw runtime_error(f("% failed to load because spng_get_ihdr failed because...\n%") % filepath % spng_strerror(ret));
-    }
-
-    this->width = ihdr.width;
-    this->height = ihdr.height;
-    if(ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA) this->numComps = 4;
-    else if(ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR) this->numComps = 3;
-    else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA) this->numComps = 2;
-    else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE) this->numComps = 1;
-    else throw runtime_error(f("% failed to load because of an unsupported color type: %") % filepath % (u16)ihdr.color_type);
-    
-    if(ihdr.bit_depth == 8) this->bytesPerComp = 1;
-    else if(ihdr.bit_depth == 16) this->bytesPerComp = 2;
-    else if(ihdr.bit_depth == 32) this->bytesPerComp = 4;
-    else throw runtime_error(f("% failed to load because a bit depth of % is unsupported") % filepath % (u16)ihdr.bit_depth);
-
-    this->type = Image::UINT;
-    this->alloc();
-
-    size_t image_size;
-    ret = spng_decoded_image_size(ctx, SPNG_FMT_PNG, &image_size);
-    if(ret > 0) throw runtime_error("spng_decoded_image_size failed");
-
-    ret = spng_decode_image(ctx, this->data, image_size, SPNG_FMT_PNG, 0);
-    if(ret) throw runtime_error(f("% failed to load because spng_decode_image failed because...\n%") % filepath % spng_strerror(ret));
-
-    this->flipVertical();
-
-    spng_ctx_free(ctx);
-  }
 
   else if(ext == ".tif" || ext == ".tiff")
   {
@@ -1357,6 +1332,61 @@ void Image::read(string const & filepath, vector<string> attrNames, vector<strin
     delete [] r.cols;
 
     this->flipVertical(); /// TODO: improve this
+  }
+
+#endif
+
+  else if(ext == ".png")
+  {
+    FILE * fp = fopen(filepath.c_str(), "rb");
+    if(!fp) 
+    {
+      throw runtime_error(f("fopen failed for %") % filepath);
+    }
+
+    spng_ctx * ctx = spng_ctx_new(0);
+    if(!ctx) throw runtime_error("spng_ctx_new failed");
+  
+    spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
+
+    size_t const limit = 1024 * 1024 * 64;
+    spng_set_chunk_limits(ctx, limit, limit);
+    
+    spng_set_png_file(ctx, fp);
+
+    struct spng_ihdr ihdr;
+    i32 ret = spng_get_ihdr(ctx, &ihdr);
+    if(ret > 0)
+    {
+      throw runtime_error(f("% failed to load because spng_get_ihdr failed because...\n%") % filepath % spng_strerror(ret));
+    }
+
+    this->width = ihdr.width;
+    this->height = ihdr.height;
+    if(ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR_ALPHA) this->numComps = 4;
+    else if(ihdr.color_type == SPNG_COLOR_TYPE_TRUECOLOR) this->numComps = 3;
+    else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE_ALPHA) this->numComps = 2;
+    else if(ihdr.color_type == SPNG_COLOR_TYPE_GRAYSCALE) this->numComps = 1;
+    else throw runtime_error(f("% failed to load because of an unsupported color type: %") % filepath % (u16)ihdr.color_type);
+    
+    if(ihdr.bit_depth == 8) this->bytesPerComp = 1;
+    else if(ihdr.bit_depth == 16) this->bytesPerComp = 2;
+    else if(ihdr.bit_depth == 32) this->bytesPerComp = 4;
+    else throw runtime_error(f("% failed to load because a bit depth of % is unsupported") % filepath % (u16)ihdr.bit_depth);
+
+    this->type = Image::UINT;
+    this->alloc();
+
+    size_t image_size;
+    ret = spng_decoded_image_size(ctx, SPNG_FMT_PNG, &image_size);
+    if(ret > 0) throw runtime_error("spng_decoded_image_size failed");
+
+    ret = spng_decode_image(ctx, this->data, image_size, SPNG_FMT_PNG, 0);
+    if(ret) throw runtime_error(f("% failed to load because spng_decode_image failed because...\n%") % filepath % spng_strerror(ret));
+
+    this->flipVertical();
+
+    spng_ctx_free(ctx);
   }
 
   else if(ext == ".tga" || ext == ".TGA")

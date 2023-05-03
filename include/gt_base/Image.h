@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <string.h> /// memcpy
 
 /// terms:
 /// component: per pixel: ie R at a given pixel

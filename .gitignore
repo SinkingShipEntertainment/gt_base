@@ -5,6 +5,7 @@
 *.o
 *.a
 *.obj
+*.so
 *.lib
 *.pdb
 *.ilk
@@ -24,3 +25,5 @@
 __pycache__/
 .pybythec/
 .autogen/
+_rez_build/
+bin/

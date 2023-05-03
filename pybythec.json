@@ -1,11 +1,8 @@
-
 {
   // "showCompilerCmds": true,
   // "showLinkerCmds": true,
-
   "buildType": "release", // debug release
-  "osType": "windows",
-
+  // "osType": "windows",
   "target": "gt_base",
   "binaryType": "static",
   "sources": [
@@ -22,37 +19,53 @@
     "./source/imgUtils.cpp",
     "./source/imgUtils3d.cpp"
   ],
-
   "defines": {
     "all": [
       "OpenColorIO_SKIP_IMPORTS",
-      "SPNG_STATIC"
+      "SPNG_STATIC",
+      "SSE_CENTOS7",
+      // "ORCA_ARNOLD"
     ],
     "debug": "GT_DEBUG",
-    "windows": ["WINDOWS", "OSWin_", "WIN32"]
+    "windows": [
+      "WINDOWS",
+      "OSWin_",
+      "WIN32"
+    ]
   },
-
-  "flags":
-  {
-    "msvc": {"all": "-std:c++17", "debug" : "-MDd", "release" : "-MD"}
+  "flags": {
+    "msvc": {
+      "all": "-std:c++17",
+      "debug": "-MDd",
+      "release": "-MD"
+    },
+    "gcc": {
+      "all": [
+        "--std=c++17",
+        "-lstdc++fs"
+      ]
+    }
   },
-
   "incPaths": {
     "all": [
       "./include"
     ]
   },
-  "extIncPaths": [
-    "$EXTERNAL/include"
-    ,"$EXTERNAL/include/Imath"
-    ,"$EXTERNAL/include/freetype"
-    ,"$EXTERNAL/include/ffmpeg"
-  ],
+  "extIncPaths": { /// TODO: find a way to pass through rez env vars ie REZ_LIBJPEG_ROOT
+    "all": [
+      "$EXTERNAL/include",
+      "$EXTERNAL/include/Imath",
+      "$EXTERNAL/include/freetype",
+      "$EXTERNAL/include/ffmpeg"
+    ],
+    "linux": "$EXTERNAL/include/jpeg",
+    "windows": "$EXTERNAL/include/jpeg_windows"
 
+  },
   "installPath": {
     "all": "$INTERNAL_LIB"
+    // "all": "./bin" 
   },
-
   "compiler": {
     "linux": "g++-9.3",
     "macOs": "clang++",
