@@ -11,7 +11,7 @@
   #include <experimental/filesystem>
   namespace filesystem = std::experimental::filesystem;
 #else
-  #include <filesystem
+  #include <filesystem>
 #endif
 
 using namespace gt;

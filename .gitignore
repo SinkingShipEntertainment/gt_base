@@ -5,6 +5,7 @@
 *.o
 *.a
 *.obj
+*.so
 *.lib
 *.pdb
 *.ilk
