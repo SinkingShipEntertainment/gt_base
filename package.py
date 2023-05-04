@@ -30,10 +30,10 @@ variants = [['platform-linux', 'arch-x86_64', 'os-centos-7']]
 
 uuid = "repository.gt_base"
 
-private_build_requires = [
-  'pybythec'
-]
-build_command = 'python {root}/build.py "' + '|'.join(variants[0]) + '"'
+# private_build_requires = [
+#   'pybythec'
+# ]
+# build_command = 'python {root}/build.py "' + '|'.join(variants[0]) + '"'
 
 def pre_build_commands():
     command("source /opt/rh/devtoolset-6/enable")
