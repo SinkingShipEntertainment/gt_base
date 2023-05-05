@@ -10,8 +10,8 @@ authors = [
 ]
 
 with scope("config") as c: # 'c' is from rezconfig.py
-    import os
-    c.release_packages_path = os.environ["SSE_REZ_REPO_RELEASE_INT"]
+  import os
+  c.release_packages_path = os.environ["SSE_REZ_REPO_RELEASE_EXT"]
 
 requires = [
   "libjpeg",
@@ -36,5 +36,5 @@ uuid = "repository.gt_base"
 # build_command = 'python {root}/build.py "' + '|'.join(variants[0]) + '"'
 
 def pre_build_commands():
-    command("source /opt/rh/devtoolset-6/enable")
+  command("source /opt/rh/devtoolset-6/enable")
 
