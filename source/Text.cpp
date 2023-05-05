@@ -9,7 +9,7 @@ using namespace gt;
 using namespace std;
 
 #if defined(__linux__)
-  string fontTemplatePath("/usr/share/fonts/truetype/%.ttf");
+  string fontTemplatePath("/usr/share/fonts/%.ttf");
 #elif defined(_WIN32)
   string fontTemplatePath("C:/Windows/Fonts/%.ttf");
 #endif
