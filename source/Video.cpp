@@ -113,7 +113,7 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
   {
     throw runtime_error("avformat_alloc_output_context2 failed");
   }
-  l.r(f("format: %\n") % fmtCtx->oformat->name);
+  l.d(f("format: %\n") % fmtCtx->oformat->name);
 
   if(fmtCtx->oformat->video_codec == AV_CODEC_ID_NONE) { throw runtime_error("avformat_alloc_output_context2 failed"); }
 

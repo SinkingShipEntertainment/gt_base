@@ -142,6 +142,43 @@ void Image::set(u32 w, u32 h, u8 numComps, u8 bytesPerComp, u8 type, bool isDept
   this->alloc();
 }
 
+void Image::crop(u32 startX, u32 startY, u32 endX, u32 endY)
+{
+  u32 newWidth = endX - startX;
+  u32 newHeight = endY - startY;
+
+  if(newWidth > this->width || newHeight > this->height)
+  {
+    throw std::runtime_error("Image::crop: new dimensions are larger than original");
+  }
+
+  u32 newPitch = newWidth * this->bytesPerComp * this->numComps;
+  u32 newBytesTotal = newPitch * newHeight;
+
+  u8 * newData = new u8[newBytesTotal];
+
+  u32 oldPitch = this->pitch;
+  u32 oldBytesPerComp = this->bytesPerComp;
+  u32 oldNumComps = this->numComps;
+
+  u8 * oldData = this->data;
+
+  this->width = newWidth;
+  this->height = newHeight;
+
+  this->pitch = newPitch;
+  this->bytesPerComp = oldBytesPerComp;
+  this->numComps = oldNumComps;
+  this->data = newData;
+
+  for(u32 y = 0; y < newHeight; y++)
+  {
+    memcpy(&this->data[y * newPitch], &oldData[(y + startY) * oldPitch + startX * oldBytesPerComp * oldNumComps], newPitch);
+  }
+
+  delete[] oldData;
+}
+
 string const rgbaOrder = "RGBA";
 string const xyzOrder  = "XYZA";
 // string const rgbTest   = "RGBA";

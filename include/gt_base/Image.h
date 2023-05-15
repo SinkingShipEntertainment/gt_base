@@ -47,6 +47,8 @@ class Image
 
   void set(u32 w, u32 h, u8 numComps, u8 bytesPerComp, u8 type = Image::UINT, bool isDepthBuffer = false);
 
+  void crop(u32 startX, u32 startY, u32 endX, u32 endY);
+
   f32x4 getPixel(u32 x, u32 y) const;
 
   f32 getAlpha(u32 x, u32 y) const;
