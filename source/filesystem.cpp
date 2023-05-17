@@ -4,13 +4,15 @@
 #include "gt_base/Logger.h"
 #include "gt_base/string.h"
 
-// #ifdef SSE_CENTOS7
+
 #if defined(__GNUC__) && __GNUC__ < 8
   #include <experimental/filesystem>
   namespace filesystem = std::experimental::filesystem;
 #else
   #include <filesystem>
 #endif
+#include <regex>
+#include <map>
 
 using namespace gt;
 using namespace std;
@@ -34,18 +36,36 @@ vector<string> const gt::getSeqPaths(string const & seqPathStr, string const ext
   /// if it's a directory, sequence order isn't guaranteed
   if(filesystem::is_directory(seqPath))
   {
-    /// TODO: currently this produces paths like:
-    /// C:/Users/tom/work_offline/maya/projects/default/sourceimages/udimTest/mari\test.1013.exr
-    /// would be better if it was C:/Users/tom/work_offline/maya/projects/default/sourceimages/udimTest/mari/test.1013.exr
+    map<u32, string> seqMap;
+
     for(auto const & di : filesystem::directory_iterator(seqPath))
     {
       filesystem::path p = di.path();
-
       if(filesystem::is_directory(p)) continue;
       if(p.extension().string() != ext) continue;
-
-      seqPaths.emplace_back(p.string());
+      try
+      {
+        string const basename = filesystem::path(p).filename().string();
+        vector<string> const parts = split(basename, '.');
+        u32 const seqNum = stoi(parts[parts.size() - 2]);
+        string pathStr = p.string();
+      #if defined(_WIN32)
+        pathStr = std::regex_replace(pathStr, std::regex("\\\\"), "/");
+      #endif
+        seqMap[seqNum] = pathStr;
+      }
+      catch(...)
+      {
+        l.w(f("% couldn't extract frame range; something like: filename.0001.exr is required") % p.string());
+        continue;
+      }
     }
+
+    for(auto const & p : seqMap)
+    {
+      seqPaths.emplace_back(p.second);
+    }
+
     return seqPaths;
   }
 

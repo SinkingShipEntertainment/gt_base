@@ -12,6 +12,9 @@
 #include "gt_base/Text.h"
 #include "gt_base/imgUtils.h"
 
+#include <filesystem>
+#include <map>
+
 using namespace gt;
 using namespace std;
 
@@ -26,9 +29,27 @@ int main(int argc, char * argv[])
 
     vector<string> seqPaths = getSeqPaths(seqPathStr, ".txt");
 
+    // sort the files based on the sequence number
+    // map<u32, string> seqMap;
+
+    // for(auto const & p : seqPaths)
+    // {
+    //   string const basename = filesystem::path(p).filename().string();
+    //   vector<string> const basenameParts = split(basename, '.');
+    //   // string const seqStr = basename.substr(0, basename.find_last_of("."));
+
+    //   l.i(f("%") % basenameParts[basenameParts.size() - 2]);
+
+    //   // u32 const seqNum = stoi(seqStr);
+    //   // seqMap[seqNum] = p;
+
+    //   // l.i(f("%") % p);
+    // }
+
     for(auto const & p : seqPaths)
     {
       l.i(f("%") % p);
+      // l.i(f("%") % p.second);
     }
 
     return 0;
