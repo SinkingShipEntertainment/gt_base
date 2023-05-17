@@ -3,7 +3,7 @@
 
 #ifdef GT_DEBUG
 
-#include "gt_base/types/base.h"
+#include "gt_base/types.h"
 #include <maya/MMatrix.h>
 #include <maya/MGlobal.h>
 #include <maya/MDagPath.h>

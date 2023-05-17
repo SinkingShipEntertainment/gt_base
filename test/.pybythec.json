@@ -19,25 +19,41 @@
   ],
   "libs": {
     "all": [
-      "zlib",
+      "z", // zlib
       "deflate",
+
       "jpeg",
       "spng",
       "tiff",
       "tga",
       "hdrloader",
+
       "Iex",
       "IlmThread",
       "Imath",
       "OpenEXRUtil",
       "OpenEXRCore",
       "OpenEXR",
-      "freetype",
+
       "pystring",
       "expat",
       "yaml-cpp",
       "Half",
-      "OpenColorIO"
+      "OpenColorIO",
+
+      "freetype",
+      
+      "avutil",
+      "swresample",
+      "swscale",
+      "avdevice",
+      // "avfilter",
+      "postproc",
+      "x264",
+      "avcodec",
+      "avformat"
+      
+      // "gt_base" 
     ],
     "windows": [
       "ws2_32",
@@ -53,6 +69,42 @@
     "linux": [
       "dl"
     ]
+
+    // "all": [
+    //   "zlib",
+    //   "deflate",
+    //   "jpeg",
+    //   "spng",
+    //   "tiff",
+    //   "tga",
+    //   "hdrloader",
+    //   "Iex",
+    //   "IlmThread",
+    //   "Imath",
+    //   "OpenEXRUtil",
+    //   "OpenEXRCore",
+    //   "OpenEXR",
+    //   "freetype",
+    //   "pystring",
+    //   "expat",
+    //   "yaml-cpp",
+    //   "Half",
+    //   "OpenColorIO"
+    // ],
+    // "windows": [
+    //   "ws2_32",
+    //   "Secur32",
+    //   "strmbase",
+    //   "Mfplat",
+    //   "mfuuid",
+    //   "Ole32",
+    //   "User32",
+    //   "Bcrypt",
+    //   "Gdi32"
+    // ],
+    // "linux": [
+    //   "dl"
+    // ]
   },
   "defines": {
     "all": [
@@ -74,11 +126,16 @@
       "../include"
     ]
   },
-  "extIncPaths": [
-    "$EXTERNAL/include"
-    ,"$EXTERNAL/include/Imath"
-    ,"$EXTERNAL/include/freetype"
-  ],
+  "extIncPaths": {
+    "all": [
+      "$EXTERNAL/include",
+      "$EXTERNAL/include/Imath",
+      "$EXTERNAL/include/freetype",
+      "$EXTERNAL/include/ffmpeg"
+    ],
+    "linux": "$EXTERNAL/include/jpeg",
+    "windows": "$EXTERNAL/include/jpeg_windows"
+  },
 
   "libPaths": {
     "all": [

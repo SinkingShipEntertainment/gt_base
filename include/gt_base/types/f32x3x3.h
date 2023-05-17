@@ -1,7 +1,7 @@
 
 #pragma once
 
-#include "gt_base/types/base.h"
+#include "gt_base/types.h"
 #include <istream>
 #include <ostream>
 

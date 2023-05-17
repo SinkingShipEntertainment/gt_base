@@ -1,6 +1,6 @@
 
 #include "gt_base/filesystem.h"
-#include "gt_base/types/base.h"
+#include "gt_base/types.h"
 #include "gt_base/Logger.h"
 #include "gt_base/string.h"
 

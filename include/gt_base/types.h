@@ -29,4 +29,8 @@ typedef unsigned long long int u64;
 typedef float f32;
 typedef double f64;
 
+#define MAX_U8 255
+#define MAX_U16 65535
+#define MAX_U32 4294967295
+
 } // namespace gt

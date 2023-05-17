@@ -6,9 +6,6 @@
 
 using namespace gt;
 
-#define MAX_U8 255
-#define MAX_U16 65535
-#define MAX_U32 4294967295
 
 f32x3 gt::lerp(const f32x3 & low, const f32x3 & high, f32 v)
 {

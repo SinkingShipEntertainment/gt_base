@@ -1,11 +1,13 @@
 
 
+#include "gt_base/types.h"
 #include "gt_base/types/f32x2.h"
 #include "gt_base/functions.h"
 #include "gt_base/string.h"
 #include "gt_base/Logger.h"
 #include "gt_base/Timer.h"
 #include "gt_base/globals.h"
+#include "gt_base/filesystem.h"
 #include "gt_base/Image.h"
 #include "gt_base/Text.h"
 #include "gt_base/imgUtils.h"
@@ -19,6 +21,18 @@ int main(int argc, char * argv[])
 {
   try
   {
+    // tmp
+    string const seqPathStr = "C:/Users/tom/Downloads/test";
+
+    vector<string> seqPaths = getSeqPaths(seqPathStr, ".txt");
+
+    for(auto const & p : seqPaths)
+    {
+      l.i(f("%") % p);
+    }
+
+    return 0;
+
     ///
     /// conversion of types
     ///
