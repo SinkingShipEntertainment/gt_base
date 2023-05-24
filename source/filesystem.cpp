@@ -56,7 +56,7 @@ vector<string> const gt::getSeqPaths(string const & seqPathStr, string const ext
       }
       catch(...)
       {
-        l.w(f("% couldn't extract frame range; something like: filename.0001.exr is required") % p.string());
+        // l.w(f("% couldn't extract frame range; something like: filename.0001.exr is required") % p.string());
         continue;
       }
     }

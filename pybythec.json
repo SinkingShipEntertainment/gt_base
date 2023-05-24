@@ -35,7 +35,7 @@
   },
   "flags": {
     "msvc": {
-      "all": "-std:c++17",
+      "all": "-std:c++17", // c++latest
       "debug": "-MDd",
       "release": "-MD"
     },

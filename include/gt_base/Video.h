@@ -56,29 +56,23 @@ class Video
   bool _written;
   std::string _outPath;
 
-  AVFormatContext * fmtCtx;
+  std::string _audioPath;
 
-  AVDictionary * opts;
+  AVFormatContext * _fmtCtx;
 
   /// video
-  AVCodec const * codec;
-  AVCodecContext * codecContext;
-  AVStream * avStream;
-  AVFrame * avFrame;
-  SwsContext * swsContext;
-  AVPixelFormat srcFormat;
-  AVPixelFormat dstFormat;
+  AVCodec const * _videoCodec;
+  SwsContext * _swsContext;
+  AVPixelFormat _srcPixelFormat;
+  AVPixelFormat _dstPixelFormat;
+
+  AVCodecContext * _codecContext;
+  AVStream * _avStream;
+  AVFrame * _avFrame;
+  AVDictionary * _opts;  
 
   /// audio
-  AVCodec const * _audioCodec;
-  AVCodecContext * _audioCodecContext;
-  AVStream * _audioAvStream;
-  AVFrame * _audioAvFrame;
-  AVFrame * _tmpAudioAvFrame;
-  SwrContext * _audioSwrContext;
-  f32 _t, _tincr, _tincr2;
-
-  
+  SwrContext * _swrContext;
 };
 
 }  // namespace gt
