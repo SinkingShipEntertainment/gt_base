@@ -23,7 +23,7 @@
     "all": [
       "OpenColorIO_SKIP_IMPORTS",
       "SPNG_STATIC",
-      "SSE_CENTOS7",
+      "SSE_CENTOS7"
       // "ORCA_ARNOLD"
     ],
     "debug": "GT_DEBUG",
