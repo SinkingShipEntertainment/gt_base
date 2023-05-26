@@ -61,15 +61,14 @@ class Video
   AVFormatContext * _fmtCtx;
 
   /// video
-  AVCodec const * _videoCodec;
   SwsContext * _swsContext;
+  AVCodec const * _videoCodec;
+  AVCodecContext * _videoCodecContext;
+  AVStream * _videoStream;
+  AVFrame * _videoFrame;
+  AVDictionary * _opts;  
   AVPixelFormat _srcPixelFormat;
   AVPixelFormat _dstPixelFormat;
-
-  AVCodecContext * _codecContext;
-  AVStream * _avStream;
-  AVFrame * _avFrame;
-  AVDictionary * _opts;  
 
   /// audio
   SwrContext * _swrContext;
