@@ -35,7 +35,6 @@ class Video
   virtual ~Video();
 
   /// @brief add audio to the video, currently can only add one audio once per Video instance
-  /// NOTE: currently a work in progress
   /// @param filePath 
   void addAudio(std::string const & filePath);
 
@@ -47,31 +46,38 @@ class Video
   void write();
 
   i64 frameCounter;
-  // int64_t frameCounter;
-
   bool hasAudio;
+  bool isInterframe;
 
  private:
   
   bool _written;
   std::string _outPath;
+  i32 _fps;
+  i64 _bitRate;
+  i32 _gopSize;
+  i32 _max_b_frames;
 
   std::string _audioPath;
 
   AVFormatContext * _fmtCtx;
+  AVDictionary * _opts;
 
   /// video
   SwsContext * _swsContext;
-  AVCodec const * _videoCodec;
+  // AVCodec const * _videoCodec;
   AVCodecContext * _videoCodecContext;
   AVStream * _videoStream;
   AVFrame * _videoFrame;
-  AVDictionary * _opts;  
+  
   AVPixelFormat _srcPixelFormat;
   AVPixelFormat _dstPixelFormat;
 
   /// audio
   SwrContext * _swrContext;
+  AVCodecContext * _audioCodecContext;
+  AVStream * _audioStream;
+  AVFrame * _audioFrame;
 };
 
 }  // namespace gt
