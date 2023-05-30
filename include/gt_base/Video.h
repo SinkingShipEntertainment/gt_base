@@ -46,6 +46,7 @@ class Video
   void write();
 
   i64 frameCounter;
+  // i64 audioSampleCounter;
   bool hasAudio;
   bool isInterframe;
 

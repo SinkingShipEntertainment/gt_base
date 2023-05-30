@@ -8,6 +8,7 @@
 extern "C"
 {
 #include <libavutil/channel_layout.h>
+#include <libavutil/avassert.h>
 #include <libswresample/swresample.h>
 }
 #include <math.h>
@@ -70,6 +71,7 @@ void avLogCb(void * ptr, i32 level, char const * fmt, va_list vargs)
 
 Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, i64 const bitRate, i32 const gopSize, i32 const max_b_frames)
     : frameCounter(0),
+      // audioSampleCounter(0),
       hasAudio(false),
       isInterframe(true), /// interframe or intraframe: h264 is but dnxhd for example is not
       _written(false),
@@ -343,24 +345,29 @@ void Video::addFrame(Image const & img)
         else if(ret < 0) { throw runtime_error("Video::addFrame avcodec_receive_frame failed"); }
 
         /// now write to the out frame
-        i64 delay         = swr_get_delay(_swrContext, _audioCodecContext->sample_rate);
-        i32 dstNumSamples = av_rescale_rnd(delay + inFrame->nb_samples, _audioCodecContext->sample_rate, _audioCodecContext->sample_rate, AV_ROUND_UP);
-        // if(dstNumSamples == inFrame->nb_samples)
-        // {
 
-        // }
+        i64 delay = swr_get_delay(_swrContext, inAudioCodecContext->sample_rate);
+        i32 dstNumSamples = av_rescale_rnd(delay + inFrame->nb_samples, _audioCodecContext->sample_rate, inAudioCodecContext->sample_rate, AV_ROUND_UP);
 
+        if(dstNumSamples > samplesPerFrame) /// is this a problem?
+        {
+          dstNumSamples = samplesPerFrame;
+
+          // samplesPerFrame = dstNumSamples;
+          // _audioCodecContext->frame_size = samplesPerFrame;
+        }
 
         AVFrame * audioFrame = av_frame_alloc();
+        if(!audioFrame) { throw runtime_error("Video::addFrame: av_frame_alloc failed"); }
         audioFrame->format   = _audioCodecContext->sample_fmt;
         av_channel_layout_copy(&audioFrame->ch_layout, &_audioCodecContext->ch_layout);
         audioFrame->sample_rate = _audioCodecContext->sample_rate;
         audioFrame->nb_samples  = samplesPerFrame;
-        if(samplesPerFrame)
-        {
-          if(av_frame_get_buffer(audioFrame, 0) < 0) { throw runtime_error("Video::addFrame: av_frame_get_buffer failed"); }
+        if(av_frame_get_buffer(audioFrame, 0) < 0) 
+        { 
+          av_frame_free(&audioFrame);
+          throw runtime_error("Video::addFrame: av_frame_get_buffer failed"); 
         }
-
         if(av_frame_make_writable(audioFrame) < 0) { throw runtime_error("Video::addFrame: av_frame_make_writable failed"); }
 
         if(swr_convert(_swrContext, audioFrame->data, dstNumSamples, (uint8_t const **)inFrame->data, inFrame->nb_samples) < 0)
@@ -369,11 +376,22 @@ void Video::addFrame(Image const & img)
         }
 
         AVRational outTimeBase = {1, _audioCodecContext->sample_rate};
-        inFrame->pts           = av_rescale_q(sampleCount, outTimeBase, _audioCodecContext->time_base);
+        audioFrame->pts = av_rescale_q(sampleCount, outTimeBase, _audioCodecContext->time_base);
         sampleCount += dstNumSamples;
 
         _audioFrames.emplace_back(audioFrame);
       }
+
+      /// flush the decoder
+      AVFrame * audioFrame = av_frame_alloc();
+      if(!audioFrame) { throw runtime_error("Video::addFrame: av_frame_alloc failed"); }
+      audioFrame->format   = _audioCodecContext->sample_fmt;
+      av_channel_layout_copy(&audioFrame->ch_layout, &_audioCodecContext->ch_layout);
+      audioFrame->sample_rate = _audioCodecContext->sample_rate;
+      audioFrame->nb_samples  = samplesPerFrame;
+      if(av_frame_get_buffer(audioFrame, 0) < 0) { throw runtime_error("Video::addFrame: av_frame_get_buffer failed");}  
+      swr_convert(_swrContext, audioFrame->data, _audioCodecContext->frame_size, 0, 0); 
+      _audioFrames.emplace_back(audioFrame);
 
       avcodec_free_context(&inAudioCodecContext);
       av_frame_unref(inFrame);
@@ -390,7 +408,7 @@ void Video::addFrame(Image const & img)
       // this->_written = true;
       // return;
 
-    }  /// end of audio input / transcoding
+    }  /// end of audio input decoding
 
   }  /// end of 1st frame setup
 
@@ -408,15 +426,14 @@ void Video::addFrame(Image const & img)
 
   encode(_fmtCtx, _videoFrame, _videoStream, _videoCodecContext);
 
-  if(_audioFrames.size() > 0)
+  // i32 sampleCount   = 0;
+  if(hasAudio && _audioFrames.size() > 0)
   {
     AVFrame * audioFrame = _audioFrames.front();
-    audioFrame->pts = _audioFramePts;
     encode(_fmtCtx, audioFrame, _audioStream, _audioCodecContext);
-    _audioFrames.erase(_audioFrames.begin());
-    _audioFramePts += audioFrame->nb_samples;
+    av_frame_free(&audioFrame);
+    _audioFrames.erase(_audioFrames.begin()); 
   }
-
 }
 
 void Video::write()
@@ -438,10 +455,11 @@ void Video::write()
   {
     avcodec_free_context(&_audioCodecContext);
     
-    // for(auto & frame : _audioFrames)
-    // {
-    //   av_frame_free(&frame);
-    // }
+    for(auto & frame : _audioFrames) /// any left over frames
+    {
+      av_frame_free(&frame);
+    }
+    _audioFrames.clear();
 
     if(_swrContext) swr_free(&_swrContext);  
   }
