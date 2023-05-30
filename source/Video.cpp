@@ -21,39 +21,21 @@ Logger l("video");  //, "./main.log");
 
 u32 audioBitRate                      = 64000;
 u32 audioSampleRate                   = 44100;
-enum AVSampleFormat audioSampleFormat = AV_SAMPLE_FMT_S16;
+// enum AVSampleFormat audioSampleFormat = AV_SAMPLE_FMT_S16;
 
-static AVFrame * alloc_audio_frame(enum AVSampleFormat sample_fmt, uint64_t channel_layout, int sample_rate, int nb_samples)
+void encode(AVFormatContext * fmtCtx, AVFrame const * avFrame, AVStream * avStream, AVCodecContext * codecContext)
 {
-  AVFrame * frame = av_frame_alloc();
-  if(!frame) { throw runtime_error("alloc_audio_frame: av_frame_alloc failed"); }
-  frame->format         = sample_fmt;
-  frame->channel_layout = channel_layout;
-  frame->sample_rate    = sample_rate;
-  frame->nb_samples     = nb_samples;
-  if(nb_samples)
-  {
-    if(av_frame_get_buffer(frame, 0) < 0) { throw runtime_error("alloc_audio_frame: av_frame_get_buffer failed"); }
-  }
-  return frame;
-}
+  if(avcodec_send_frame(codecContext, avFrame) < 0) { throw runtime_error("avcodec_send_frame failed"); }
 
-void endcode(AVFormatContext * fmtCtx, AVFrame const * avFrame, AVStream * avStream, AVCodecContext * codecContext)
-{
-  i32 ret = avcodec_send_frame(codecContext, avFrame);
-
-  if(ret < 0) { throw runtime_error("avcodec_send_frame failed"); }
-
-  while(ret >= 0)
+  while(true)
   {
     AVPacket avPacket = {0};
 
-    ret = avcodec_receive_packet(codecContext, &avPacket);
+    i32 ret = avcodec_receive_packet(codecContext, &avPacket);
     if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) { break; }
 
-    else if(ret < 0) { throw runtime_error("avcodec_receive_packet failed"); }
+    if(ret < 0) { throw runtime_error("encode: avcodec_receive_packet failed"); }
 
-    /// this probably isn't necessary for video as the time_base's are the same, audio is a different story
     av_packet_rescale_ts(&avPacket, codecContext->time_base, avStream->time_base);
     avPacket.stream_index = avStream->index;
 
@@ -64,6 +46,15 @@ void endcode(AVFormatContext * fmtCtx, AVFrame const * avFrame, AVStream * avStr
     if(ret < 0) { throw runtime_error("av_interleaved_write_frame failed"); }
   }
 }
+
+// void decode(AVFormatContext * fmtCtx, AVCodecContext * codecContext, AVFrame * avFrame)
+// {
+//   AVPacket * avPacket = av_packet_alloc();
+//   if(!avPacket) { throw runtime_error("av_packet_alloc failed"); }
+
+//   if 
+
+// }
 
 void avLogCb(void * ptr, i32 level, char const * fmt, va_list vargs)
 {
@@ -98,7 +89,8 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
       _swrContext(nullptr),
       _audioCodecContext(nullptr),
       _audioStream(nullptr),
-      _audioFrame(nullptr)
+      // _audioFrame(nullptr)
+      _audioFramePts(0)
 {
   av_log_set_callback(&avLogCb);
 
@@ -214,6 +206,7 @@ void Video::addFrame(Image const & img)
     if(!_swsContext) { throw runtime_error("sws_getContext failed"); }
 
     /// audio initialization
+    i32 samplesPerFrame = 0;
     if(hasAudio)
     {
       if(_fmtCtx->oformat->audio_codec == AV_CODEC_ID_NONE) { throw runtime_error("Video::addFrame: format doesn't support audio"); }
@@ -224,8 +217,10 @@ void Video::addFrame(Image const & img)
 
       _audioCodecContext = avcodec_alloc_context3(audioCodec);
       _audioCodecContext->sample_fmt      = audioCodec->sample_fmts ? audioCodec->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
-      _audioCodecContext->bit_rate        = audioBitRate;
-      _audioCodecContext->sample_rate     = audioSampleRate;
+
+      // _audioCodecContext->bit_rate        = audioBitRate;
+      // _audioCodecContext->sample_rate     = audioSampleRate;
+      
       if(audioCodec->supported_samplerates)
       {
         _audioCodecContext->sample_rate = audioCodec->supported_samplerates[0];
@@ -253,19 +248,19 @@ void Video::addFrame(Image const & img)
         throw runtime_error("Video::addFrame: avcodec_parameters_from_context failed");
       }
 
-      i32 numSamples = 0;
-      if(audioCodec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE) { numSamples = 10000; }
-      else { numSamples = _audioCodecContext->frame_size; }
+      
+      if(audioCodec->capabilities & AV_CODEC_CAP_VARIABLE_FRAME_SIZE) { samplesPerFrame = 10000; }
+      else {samplesPerFrame = _audioCodecContext->frame_size; }
 
-      _audioFrame = av_frame_alloc();
-      _audioFrame->format   = _audioCodecContext->sample_fmt;
-      av_channel_layout_copy(&_audioFrame->ch_layout, &_audioCodecContext->ch_layout);
-      _audioFrame->sample_rate = _audioCodecContext->sample_rate;
-      _audioFrame->nb_samples  = numSamples;
-      if(numSamples)
-      {
-        if(av_frame_get_buffer(_audioFrame, 0) < 0) { throw runtime_error("Video::addFrame: av_frame_get_buffer failed"); }
-      }
+      // _audioFrame = av_frame_alloc();
+      // _audioFrame->format   = _audioCodecContext->sample_fmt;
+      // av_channel_layout_copy(&_audioFrame->ch_layout, &_audioCodecContext->ch_layout);
+      // _audioFrame->sample_rate = _audioCodecContext->sample_rate;
+      // _audioFrame->nb_samples  = numSamples;
+      // if(numSamples)
+      // {
+      //   if(av_frame_get_buffer(_audioFrame, 0) < 0) { throw runtime_error("Video::addFrame: av_frame_get_buffer failed"); }
+      // }
 
       if(_fmtCtx->oformat->flags & AVFMT_GLOBALHEADER) _audioCodecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
     }
@@ -281,6 +276,7 @@ void Video::addFrame(Image const & img)
       throw runtime_error("avformat_write_header failed");
     }
 
+    /// done initializing
     if(hasAudio)  /// audio input / transcoding
     {
       AVFormatContext * inAudioFmtCtx = nullptr;
@@ -310,55 +306,82 @@ void Video::addFrame(Image const & img)
       if(swr_init(_swrContext) < 0) { throw runtime_error("Video::addFrame: swr_init failed"); }
 
       i32 sampleCount   = 0;
-      AVPacket * packet = av_packet_alloc();
+      AVPacket * inPacket = av_packet_alloc();
       AVFrame * inFrame = av_frame_alloc();
+
+      AVPacket * outPacket = av_packet_alloc();
 
       while(true)
       {
-        if(av_read_frame(inAudioFmtCtx, packet) < 0) break;
-
-        if(packet->stream_index != audioStreamIdx)
+        i32 ret = av_read_frame(inAudioFmtCtx, inPacket);
+        if(av_read_frame(inAudioFmtCtx, inPacket) < 0) 
         {
-          av_packet_unref(packet);
+          if(ret == AVERROR_EOF) /// end of file reached
+          { 
+            break; 
+          }
+          else { throw runtime_error("Video::addFrame: av_read_frame failed"); }
+        }
+
+        if(inPacket->stream_index != audioStreamIdx)
+        {
+          av_packet_unref(inPacket);
           continue;
         }
 
-        if(avcodec_send_packet(inAudioCodecContext, packet) < 0) { throw runtime_error("Video::addFrame avcodec_send_packet failed"); }
+        if(avcodec_send_packet(inAudioCodecContext, inPacket) < 0) { throw runtime_error("Video::addFrame avcodec_send_packet failed"); }
 
-        while(true)
+        ret = avcodec_receive_frame(inAudioCodecContext, inFrame);
+        if(ret == AVERROR(EAGAIN) ) // || ret == AVERROR_EOF)
         {
-          i32 ret = avcodec_receive_frame(inAudioCodecContext, inFrame);
-          if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) { break; }
-          else if(ret < 0) { throw runtime_error("Video::addFrame avcodec_receive_frame failed"); }
+          break;
+        }
+        else if(ret == AVERROR_EOF) /// end of file reached
+        {
+          break;
+        }
+        else if(ret < 0) { throw runtime_error("Video::addFrame avcodec_receive_frame failed"); }
 
-          /// now write to the out frame
-          i64 delay         = swr_get_delay(_swrContext, _audioCodecContext->sample_rate);
-          i32 dstNumSamples = av_rescale_rnd(delay + inFrame->nb_samples, _audioCodecContext->sample_rate, _audioCodecContext->sample_rate, AV_ROUND_UP);
-          // av_assert0(dstNumSamples == inFrame->nb_samples);
+        /// now write to the out frame
+        i64 delay         = swr_get_delay(_swrContext, _audioCodecContext->sample_rate);
+        i32 dstNumSamples = av_rescale_rnd(delay + inFrame->nb_samples, _audioCodecContext->sample_rate, _audioCodecContext->sample_rate, AV_ROUND_UP);
+        // if(dstNumSamples == inFrame->nb_samples)
+        // {
 
-          if(av_frame_make_writable(_audioFrame) < 0) { throw runtime_error("Video::addFrame: av_frame_make_writable failed"); }
+        // }
 
-          if(swr_convert(_swrContext, _audioFrame->data, dstNumSamples, (uint8_t const **)inFrame->data, inFrame->nb_samples) < 0)
-          {
-            throw runtime_error("Video::addFrame: swr_convert failed");
-          }
 
-          AVRational outTimeBase = {1, _audioCodecContext->sample_rate};
-          inFrame->pts           = av_rescale_q(sampleCount, outTimeBase, _audioCodecContext->time_base);
-          sampleCount += dstNumSamples;
-
-          // endcode(_fmtCtx, _audioFrame, _audioStream, _audioCodecContext);
+        AVFrame * audioFrame = av_frame_alloc();
+        audioFrame->format   = _audioCodecContext->sample_fmt;
+        av_channel_layout_copy(&audioFrame->ch_layout, &_audioCodecContext->ch_layout);
+        audioFrame->sample_rate = _audioCodecContext->sample_rate;
+        audioFrame->nb_samples  = samplesPerFrame;
+        if(samplesPerFrame)
+        {
+          if(av_frame_get_buffer(audioFrame, 0) < 0) { throw runtime_error("Video::addFrame: av_frame_get_buffer failed"); }
         }
 
-        // av_packet_unref(packet);
+        if(av_frame_make_writable(audioFrame) < 0) { throw runtime_error("Video::addFrame: av_frame_make_writable failed"); }
+
+        if(swr_convert(_swrContext, audioFrame->data, dstNumSamples, (uint8_t const **)inFrame->data, inFrame->nb_samples) < 0)
+        {
+          throw runtime_error("Video::addFrame: swr_convert failed");
+        }
+
+        AVRational outTimeBase = {1, _audioCodecContext->sample_rate};
+        inFrame->pts           = av_rescale_q(sampleCount, outTimeBase, _audioCodecContext->time_base);
+        sampleCount += dstNumSamples;
+
+        _audioFrames.emplace_back(audioFrame);
       }
 
-      av_packet_free(&packet);
-
       avcodec_free_context(&inAudioCodecContext);
+      av_frame_unref(inFrame);
       av_frame_free(&inFrame);
-
+      av_packet_free(&inPacket);
       avformat_free_context(inAudioFmtCtx);
+
+      av_packet_free(&outPacket);
 
       // /// TMP
       // av_write_trailer(_fmtCtx);
@@ -369,7 +392,7 @@ void Video::addFrame(Image const & img)
 
     }  /// end of audio input / transcoding
 
-  }  /// done initializing
+  }  /// end of 1st frame setup
 
   /// encode video frame
   if(av_frame_make_writable(_videoFrame) < 0) { throw runtime_error("av_frame_make_writable failed"); }
@@ -378,19 +401,29 @@ void Video::addFrame(Image const & img)
   i32 const * srcStride       = reinterpret_cast<i32 const *>(&img.pitch);
   if(sws_scale(_swsContext, srcSlice, srcStride, 0, _videoCodecContext->height, _videoFrame->data, _videoFrame->linesize) < 0)
   {
-    throw runtime_error("sws_scale failed");
+    throw runtime_error("Video::addFrame: sws_scale failed");
   }
-
-  /// av_compare_ts ?
 
   _videoFrame->pts = frameCounter++;
 
-  endcode(_fmtCtx, _videoFrame, _videoStream, _videoCodecContext);
+  encode(_fmtCtx, _videoFrame, _videoStream, _videoCodecContext);
+
+  if(_audioFrames.size() > 0)
+  {
+    AVFrame * audioFrame = _audioFrames.front();
+    audioFrame->pts = _audioFramePts;
+    encode(_fmtCtx, audioFrame, _audioStream, _audioCodecContext);
+    _audioFrames.erase(_audioFrames.begin());
+    _audioFramePts += audioFrame->nb_samples;
+  }
+
 }
 
 void Video::write()
 {
-  endcode(_fmtCtx, nullptr, _videoStream, _videoCodecContext);
+  encode(_fmtCtx, nullptr, _videoStream, _videoCodecContext);
+
+  if(hasAudio) encode(_fmtCtx, nullptr, _audioStream, _audioCodecContext);
 
   /// cleanup
   av_dict_free(&_opts);
@@ -401,10 +434,18 @@ void Video::write()
   av_frame_free(&_videoFrame);
   sws_freeContext(_swsContext);
 
-  avcodec_free_context(&_audioCodecContext);
-  av_frame_free(&_audioFrame);
-  if(_swrContext) swr_free(&_swrContext);
+  if(hasAudio)
+  {
+    avcodec_free_context(&_audioCodecContext);
+    
+    // for(auto & frame : _audioFrames)
+    // {
+    //   av_frame_free(&frame);
+    // }
 
+    if(_swrContext) swr_free(&_swrContext);  
+  }
+  
   if(!(_fmtCtx->oformat->flags & AVFMT_NOFILE)) avio_closep(&_fmtCtx->pb);
 
   avformat_free_context(_fmtCtx);

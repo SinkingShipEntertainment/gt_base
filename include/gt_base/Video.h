@@ -77,7 +77,10 @@ class Video
   SwrContext * _swrContext;
   AVCodecContext * _audioCodecContext;
   AVStream * _audioStream;
-  AVFrame * _audioFrame;
+  // AVFrame * _audioFrame;
+  std::vector<AVFrame*> _audioFrames; 
+
+  i64 _audioFramePts;
 };
 
 }  // namespace gt
