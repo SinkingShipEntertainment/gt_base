@@ -1131,9 +1131,13 @@ void Image::read(string const & filepath, vector<string> attrNames, vector<strin
 
     Imf::Header header = inputFile.header();
     Imath::Box2i dw = header.dataWindow();
+    Imath::Box2i res = header.displayWindow();
 
-    this->width  = dw.max.x - dw.min.x + 1;
-    this->height = dw.max.y - dw.min.y + 1;
+    this->width = res.max.x + 1;
+    this->height = res.max.y + 1;
+
+    // this->width  = dw.max.x - dw.min.x + 1;
+    // this->height = dw.max.y - dw.min.y + 1;
     // l.i(f("width %, height %") % width % height);
 
     for(auto const & attrName: attrNames)
@@ -1159,7 +1163,8 @@ void Image::read(string const & filepath, vector<string> attrNames, vector<strin
       // else if(typeName == "") TODO: perhaps there's others of interest
     }
 
-    i32 offset = -dw.min.x - dw.min.y * this->width;  /// TODO: is this necessary?
+    // i32 offset = -dw.min.x - dw.min.y * this->width;  /// TODO: is this necessary?
+    i32 offset = 0;
 
     Imf::ChannelList const & allChannels = header.channels();
 
@@ -1247,7 +1252,7 @@ void Image::read(string const & filepath, vector<string> attrNames, vector<strin
     }
     
     inputFile.setFrameBuffer(frameBuffer);
-    inputFile.readPixels(dw.min.y, dw.max.y);
+    inputFile.readPixels(dw.min.y, dw.max.y); /// TODO: check if this should be the full res
 
     this->setToChannelMode(false);
   }

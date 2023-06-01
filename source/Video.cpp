@@ -134,7 +134,9 @@ void Video::addAudio(string const & filePath)
 {
   _audioPath = filePath;
   /// TODO: validate audio file path
-  hasAudio   = true;
+  l.w("audio not yet supported");
+  // hasAudio   = true;
+
 }
 
 void Video::addFrame(Image const & img)
@@ -369,6 +371,11 @@ void Video::addFrame(Image const & img)
           throw runtime_error("Video::addFrame: av_frame_get_buffer failed"); 
         }
         if(av_frame_make_writable(audioFrame) < 0) { throw runtime_error("Video::addFrame: av_frame_make_writable failed"); }
+
+        // if(swr_convert_frame(_swrContext, audioFrame, inFrame) < 0)
+        // {
+        //   throw runtime_error("Video::addFrame: swr_convert failed");
+        // }
 
         if(swr_convert(_swrContext, audioFrame->data, dstNumSamples, (uint8_t const **)inFrame->data, inFrame->nb_samples) < 0)
         {
