@@ -51,6 +51,8 @@ class Video
   bool isInterframe;
 
  private:
+
+  AVFrame * genAudioFrame(AVCodecContext const * cc, i32 numSamples);
   
   bool _written;
   std::string _outPath;
@@ -81,7 +83,7 @@ class Video
   // AVFrame * _audioFrame;
   std::vector<AVFrame*> _audioFrames; 
 
-  i64 _audioFramePts;
+  // i64 _audioFramePts;
 };
 
 }  // namespace gt
