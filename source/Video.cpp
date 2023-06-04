@@ -24,7 +24,7 @@ Logger l("video");  //, "./main.log");
 u32 audioBitRate                      = 64000;
 u32 audioSampleRate                   = 44100;
 enum AVSampleFormat audioSampleFormat = AV_SAMPLE_FMT_S16;
-i64 STREAM_DURATION                   = 24;
+i64 STREAM_DURATION                   = 2; // 24 frames == 2 seconds
 
 void encode(AVFormatContext * fmtCtx, AVFrame const * avFrame, AVStream * avStream, AVCodecContext * codecContext)
 {
@@ -76,6 +76,25 @@ void decode(AVCodecContext * codecContext, vector<AVFrame *> & frames, AVPacket 
   // frames.emplace_back(inFrame);
 }
 
+
+AVFrame * genAudioFrame(i32 format, AVChannelLayout const & outChannelLayout, i32 sampleRate, i32 numSamples)
+{
+  AVFrame * audioFrame = av_frame_alloc();
+  if(!audioFrame) { throw runtime_error("Video::genAudioFrame: av_frame_alloc failed"); }
+  audioFrame->format = format;
+  av_channel_layout_copy(&audioFrame->ch_layout, &outChannelLayout);
+  audioFrame->sample_rate = sampleRate;
+
+  audioFrame->nb_samples = numSamples;
+  if(av_frame_get_buffer(audioFrame, 0) < 0)
+  {
+    av_frame_free(&audioFrame);
+    throw runtime_error("Video::genAudioFrame: av_frame_get_buffer failed");
+  }
+  return audioFrame;
+}
+
+
 void avLogCb(void * ptr, i32 level, char const * fmt, va_list vargs)
 {
   va_list vl2;
@@ -90,7 +109,6 @@ void avLogCb(void * ptr, i32 level, char const * fmt, va_list vargs)
 
 Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, i64 const bitRate, i32 const gopSize, i32 const max_b_frames)
     : frameCounter(0),
-      // audioSampleCounter(0),
       hasAudio(false),
       isInterframe(true),  /// interframe or intraframe: h264 is but dnxhd for example is not
       _written(false),
@@ -111,8 +129,6 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
       _audioCodecContext(nullptr),
       _audioStream(nullptr),
       _numAudioFrames(0)
-// _audioFrame(nullptr)
-// _audioFramePts(0)
 {
   av_log_set_callback(&avLogCb);
 
@@ -148,32 +164,12 @@ Video::~Video()
 }
 
 /// @brief add audio to the video, currently can only add one audio once per Video instance
-
 /// @param filePath
 void Video::addAudio(string const & filePath, u32 numFrames)
 {
   _audioPath = filePath; /// TODO: validate audio file path
   _numAudioFrames = numFrames;
   hasAudio = true;
-}
-
-AVFrame * genAudioFrame(i32 format, AVChannelLayout const & outChannelLayout, i32 sampleRate, i32 numSamples)
-{
-  AVFrame * audioFrame = av_frame_alloc();
-  if(!audioFrame) { throw runtime_error("Video::genAudioFrame: av_frame_alloc failed"); }
-  audioFrame->format = format;
-  av_channel_layout_copy(&audioFrame->ch_layout, &outChannelLayout);
-  audioFrame->sample_rate = sampleRate;
-
-  audioFrame->nb_samples = numSamples;
-  if(av_frame_get_buffer(audioFrame, 0) < 0)
-  {
-    av_frame_free(&audioFrame);
-    throw runtime_error("Video::genAudioFrame: av_frame_get_buffer failed");
-  }
-  // if(av_frame_make_writable(audioFrame) < 0) { throw runtime_error("Video::genAudioFrame: av_frame_make_writable failed"); }
-
-  return audioFrame;
 }
 
 void Video::addFrame(Image const & img)
@@ -299,6 +295,7 @@ void Video::addFrame(Image const & img)
 #ifdef SYNTH_AUDIO_TEST
 
       _audioCodecContext->sample_rate =  audioSampleRate;
+      _audioCodecContext->bit_rate     =  audioBitRate;
 
       _audioCodecContext->time_base.num = 1;
       _audioCodecContext->time_base.den = audioSampleRate;
@@ -372,10 +369,10 @@ void Video::addFrame(Image const & img)
 
       // while(true)
       // {
-      //   if(av_compare_ts(nextPts, _audioCodecContext->time_base, STREAM_DURATION, {1, 1}) >= 0) 
-      //   { 
-      //     break; 
-      //   }
+        // if(av_compare_ts(nextPts, _audioCodecContext->time_base, STREAM_DURATION, {1, 1}) >= 0) 
+        // { 
+        //   break; 
+        // }
 
       for(u32 i_ = 0; i_ < _numAudioFrames; i_++)
       {
@@ -408,7 +405,7 @@ void Video::addFrame(Image const & img)
 
         _audioFrames.emplace_back(audioFrame);
 
-        // inFrames.push_back(inFrame);
+        // inFrames.emplace_back(inFrame);
         av_frame_unref(inFrame);
       }
 
