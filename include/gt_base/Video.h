@@ -36,7 +36,7 @@ class Video
 
   /// @brief add audio to the video, currently can only add one audio once per Video instance
   /// @param filePath 
-  void addAudio(std::string const & filePath);
+  void addAudio(std::string const & filePath, u32 numFrames);
 
   /// @brief 
   /// @param img 
@@ -52,7 +52,6 @@ class Video
 
  private:
 
-  AVFrame * genAudioFrame(AVCodecContext const * cc, i32 numSamples);
   
   bool _written;
   std::string _outPath;
@@ -83,6 +82,7 @@ class Video
   // AVFrame * _audioFrame;
   std::vector<AVFrame*> _audioFrames; 
 
+  u32 _numAudioFrames;
   // i64 _audioFramePts;
 };
 
