@@ -24,9 +24,8 @@ Logger l("video");  //, "./main.log");
 u32 audioBitRate                      = 64000;
 u32 audioSampleRate                   = 44100;
 enum AVSampleFormat audioSampleFormat = AV_SAMPLE_FMT_S16;
-i64 STREAM_DURATION                   = 2; // 24 frames == 2 seconds
 
-void encode(AVFormatContext * fmtCtx, AVFrame const * avFrame, AVStream * avStream, AVCodecContext * codecContext)
+bool encode(AVFormatContext * fmtCtx, AVFrame const * avFrame, AVStream * avStream, AVCodecContext * codecContext)
 {
   if(avcodec_send_frame(codecContext, avFrame) < 0) { throw runtime_error("avcodec_send_frame failed"); }
 
@@ -35,7 +34,16 @@ void encode(AVFormatContext * fmtCtx, AVFrame const * avFrame, AVStream * avStre
     AVPacket avPacket = {0};
 
     i32 ret = avcodec_receive_packet(codecContext, &avPacket);
-    if(ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) { break; }
+    if(ret == AVERROR(EAGAIN))
+    {
+      av_packet_unref(&avPacket);
+      return false;
+    }
+    if(ret == AVERROR_EOF) 
+    { 
+      av_packet_unref(&avPacket);
+      return true; 
+    }
 
     if(ret < 0) { throw runtime_error("encode: avcodec_receive_packet failed"); }
 
@@ -48,6 +56,7 @@ void encode(AVFormatContext * fmtCtx, AVFrame const * avFrame, AVStream * avStre
     av_packet_unref(&avPacket);
     if(ret < 0) { throw runtime_error("av_interleaved_write_frame failed"); }
   }
+  return false;
 }
 
 void decode(AVCodecContext * codecContext, vector<AVFrame *> & frames, AVPacket const * avPacket)
@@ -128,7 +137,7 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
       _swrContext(nullptr),
       _audioCodecContext(nullptr),
       _audioStream(nullptr),
-      _numAudioFrames(0)
+      _audioDuration(0)
 {
   av_log_set_callback(&avLogCb);
 
@@ -168,7 +177,7 @@ Video::~Video()
 void Video::addAudio(string const & filePath, u32 numFrames)
 {
   _audioPath = filePath; /// TODO: validate audio file path
-  _numAudioFrames = numFrames;
+  _audioDuration = static_cast<f32>(numFrames) / static_cast<f32>(_fps);
   hasAudio = true;
 }
 
@@ -360,28 +369,28 @@ void Video::addFrame(Image const & img)
 #ifdef SYNTH_AUDIO_TEST
       f32 t       = 0;
       f32 tincr   = 2 * M_PI * 110.0 / _audioCodecContext->sample_rate;
-      f32 tincr2  = 2 * M_PI * 110.0 / _audioCodecContext->sample_rate / _audioCodecContext->sample_rate;
+      f32 const tincr2  = 2 * M_PI * 110.0 / _audioCodecContext->sample_rate / _audioCodecContext->sample_rate;
       i64 nextPts = 0;
 
-      AVFrame * inFrame = genAudioFrame(audioSampleFormat, outChannelLayout, audioSampleRate, samplesPerFrame);
+      // AVFrame * inFrame = genAudioFrame(audioSampleFormat, outChannelLayout, audioSampleRate, samplesPerFrame);
   
-      if(!inFrame) { throw runtime_error("genAudioFrame failed"); }
+      // if(!inFrame) { throw runtime_error("genAudioFrame failed"); }
 
-      // while(true)
-      // {
-        // if(av_compare_ts(nextPts, _audioCodecContext->time_base, STREAM_DURATION, {1, 1}) >= 0) 
-        // { 
-        //   break; 
-        // }
-
-      for(u32 i_ = 0; i_ < _numAudioFrames; i_++)
+      while(true)
       {
-        int j, i, v;
-        int16_t * q = (int16_t *)inFrame->data[0];
+        if(av_compare_ts(nextPts, _audioCodecContext->time_base, _audioDuration, {1, 1}) > 0) 
+        { 
+          break; 
+        }
+
+        AVFrame * inFrame = genAudioFrame(audioSampleFormat, outChannelLayout, audioSampleRate, samplesPerFrame);
+        
+        i32 j, i, v;
+        i16 * q = reinterpret_cast<i16 *>(inFrame->data[0]);
 
         for(j = 0; j < inFrame->nb_samples; j++)
         {
-          v = (int)(sin(t) * 10000);
+          v = static_cast<i32>(sin(t) * 10000);
           for(i = 0; i < inFrame->ch_layout.nb_channels; i++)
             *q++ = v;
           t += tincr;
@@ -391,6 +400,11 @@ void Video::addFrame(Image const & img)
         inFrame->pts = nextPts;
         nextPts += inFrame->nb_samples;
 
+        inFrames.emplace_back(inFrame);
+      }
+
+      for(auto & inFrame : inFrames)
+      {
         AVFrame * audioFrame = genAudioFrame(_audioCodecContext->sample_fmt, _audioCodecContext->ch_layout, _audioCodecContext->sample_rate, samplesPerFrame);
     
         if(av_frame_make_writable(audioFrame) < 0) { throw runtime_error("Video::genAudioFrame: av_frame_make_writable failed"); }
@@ -404,10 +418,9 @@ void Video::addFrame(Image const & img)
         sampleCount += audioFrame->nb_samples;
 
         _audioFrames.emplace_back(audioFrame);
-
-        // inFrames.emplace_back(inFrame);
-        av_frame_unref(inFrame);
       }
+
+
 
 #else
       while(true)
@@ -430,7 +443,7 @@ void Video::addFrame(Image const & img)
 
         decode(inAudioCodecContext, inFrames, inPacket);
 
-        AVFrame * audioFrame = genAudioFrame(_audioCodecContext->format, outChannelLayout, _audioCodecContext->sample_rate, samplesPerFrame);
+        AVFrame * audioFrame = genAudioFrame(_audioCodecContext->sample_fmt, outChannelLayout, _audioCodecContext->sample_rate, samplesPerFrame);
         // genAudioFrame(i32 format, AVChannelLayout const & outChannelLayout, i32 sampleRate, i32 numSamples)
 
         i64 delay = swr_get_delay(_swrContext, inAudioCodecContext->sample_rate);
@@ -453,6 +466,7 @@ void Video::addFrame(Image const & img)
       /// flush the decoder
       decode(inAudioCodecContext, inFrames, nullptr);
 #endif
+
 
       // /// flush the transcoder
       // AVFrame * audioFrame = genAudioFrame(inAudioCodecContext, samplesPerFrame);
@@ -505,12 +519,27 @@ void Video::addFrame(Image const & img)
 
   encode(_fmtCtx, _videoFrame, _videoStream, _videoCodecContext);
 
+
   if(hasAudio && _audioFrames.size() > 0)
   {
-    AVFrame * audioFrame = _audioFrames.front();
-    encode(_fmtCtx, audioFrame, _audioStream, _audioCodecContext);
-    av_frame_free(&audioFrame);
-    _audioFrames.erase(_audioFrames.begin());
+    while(true) /// add some audio frames
+    {
+      if(_audioFrames.size() == 0) 
+      { 
+        break; 
+      }
+
+      AVFrame * audioFrame = _audioFrames.front();
+      i64 audioPts = audioFrame->pts;
+      if(av_compare_ts(audioPts, _audioCodecContext->time_base, _videoFrame->pts, _videoCodecContext->time_base) > 0) 
+      { 
+        break; 
+      }
+
+      encode(_fmtCtx, audioFrame, _audioStream, _audioCodecContext);
+      av_frame_free(&audioFrame);
+      _audioFrames.erase(_audioFrames.begin());
+    }
   }
 }
 
