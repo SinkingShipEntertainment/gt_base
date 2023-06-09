@@ -29,33 +29,61 @@ bool encode(AVFormatContext * fmtCtx, AVFrame const * avFrame, AVStream * avStre
 {
   if(avcodec_send_frame(codecContext, avFrame) < 0) { throw runtime_error("avcodec_send_frame failed"); }
 
+  AVPacket * avPacket = av_packet_alloc();
+
   while(true)
   {
-    AVPacket avPacket = {0};
+    // AVPacket avPacket = av_packet_alloc();
+    // AVPacket avPacket = {0};
 
-    i32 ret = avcodec_receive_packet(codecContext, &avPacket);
+    /// for video returns AVERROR(EAGAIN) when a frame is sent to avcodec_send_frame, when avFrame is null it returns above 0
+    i32 ret = avcodec_receive_packet(codecContext, avPacket);
+    // i32 ret = avcodec_receive_packet(codecContext, &avPacket);
     if(ret == AVERROR(EAGAIN))
     {
-      av_packet_unref(&avPacket);
+      av_packet_free(&avPacket);
+      // av_packet_unref(&avPacket);
       return false;
     }
     if(ret == AVERROR_EOF) 
     { 
-      av_packet_unref(&avPacket);
+      // av_packet_rescale_ts(avPacket, codecContext->time_base, avStream->time_base);
+      // avPacket->stream_index = avStream->index;
+      // ret = av_interleaved_write_frame(fmtCtx, avPacket);
+      // av_packet_unref(avPacket);
+      // if(ret < 0) 
+      // { 
+      //   throw runtime_error("av_interleaved_write_frame failed"); 
+      // }
+
+      av_packet_free(&avPacket);
+      // av_packet_unref(&avPacket);
       return true; 
     }
 
+    avPacket->time_base = codecContext->time_base;
+
     if(ret < 0) { throw runtime_error("encode: avcodec_receive_packet failed"); }
 
-    av_packet_rescale_ts(&avPacket, codecContext->time_base, avStream->time_base);
-    avPacket.stream_index = avStream->index;
+    /// only get here on the final flush
+
+    // av_packet_rescale_ts(avPacket, avPacket->time_base, codecContext->time_base);
+    // avPacket->time_base = codecContext->time_base;
+
+    av_packet_rescale_ts(avPacket, codecContext->time_base, avStream->time_base);
+    avPacket->stream_index = avStream->index;
+    // av_packet_rescale_ts(&avPacket, codecContext->time_base, avStream->time_base);
+    // avPacket.stream_index = avStream->index;
 
     // log_packet(fmtCtx, &avPacket);
 
-    ret = av_interleaved_write_frame(fmtCtx, &avPacket);
-    av_packet_unref(&avPacket);
+    ret = av_interleaved_write_frame(fmtCtx, avPacket);
+    // av_packet_unref(avPacket);
+    // ret = av_interleaved_write_frame(fmtCtx, &avPacket);
+    // av_packet_unref(&avPacket);
     if(ret < 0) { throw runtime_error("av_interleaved_write_frame failed"); }
   }
+  av_packet_free(&avPacket);
   return false;
 }
 
@@ -164,7 +192,9 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
   // l.d(f("format: %\n") % _fmtCtx->oformat->name);
 
   /// codec specific options
-  // av_dict_set(&_opts, "crf", "23", 0); /// 0 23 (0 - 51) 0 is loseless, overrides bit rate
+  // av_dict_set(&_opts, "crf", "23", 0); /// 0 23 (0 - 51) 0 is loseless, overrides bit rate?
+  // av_dict_set(&_opts, "r", (f("%") % _fps).c_str(), 0);  /// frame rate TMP
+  // av_dict_set(&_opts, "framerate", (f("%") % _fps).c_str(), 0);  /// frame rate TMP
 }
 
 Video::~Video()
@@ -176,9 +206,10 @@ Video::~Video()
 /// @param filePath
 void Video::addAudio(string const & filePath, u32 numFrames)
 {
-  _audioPath = filePath; /// TODO: validate audio file path
-  _audioDuration = static_cast<f32>(numFrames) / static_cast<f32>(_fps);
-  hasAudio = true;
+  /// TMP
+  // _audioPath = filePath; /// TODO: validate audio file path
+  // _audioDuration = static_cast<f32>(numFrames) / static_cast<f32>(_fps);
+  // hasAudio = true;
 }
 
 void Video::addFrame(Image const & img)
@@ -199,9 +230,13 @@ void Video::addFrame(Image const & img)
     _videoCodecContext->bit_rate = _bitRate;
 
     _videoCodecContext->time_base.num = 1;
-    _videoCodecContext->time_base.den = _fps;
-    // _videoCodecContext->framerate.num = fps;
-    // _videoCodecContext->framerate.den = 1;
+    _videoCodecContext->time_base.den = _fps; /// _fps - 1 26
+
+    // _videoCodecContext->time_base = av_d2q(_fps, INT_MAX);
+
+    // _videoCodecContext->framerate = av_d2q(_fps, INT_MAX);
+    _videoCodecContext->framerate.num = _fps - 1;
+    _videoCodecContext->framerate.den = 1;
 
     if(isInterframe)
     {
@@ -215,15 +250,13 @@ void Video::addFrame(Image const & img)
     if(!_videoStream) { throw runtime_error("avformat_new_stream failed"); }
     _videoStream->id = _fmtCtx->nb_streams - 1;
 
-    // _videoStream->time_base.num = 1;
-    // _videoStream->time_base.den = fps;
     _videoStream->time_base = _videoCodecContext->time_base;
 
     _videoFrame = av_frame_alloc();
     if(!_videoFrame) { throw runtime_error("av_frame_alloc failed"); }
     _videoFrame->pts = 0;
     l.r("\n");
-
+    
     _videoCodecContext->width  = img.width;
     _videoCodecContext->height = img.height;
 
@@ -234,8 +267,6 @@ void Video::addFrame(Image const & img)
 
     if(avcodec_open2(_videoCodecContext, videoCodec, &_opts) < 0) { throw runtime_error("avcodec_open2 failed"); }
 
-    // avFrame->width  = outWidth;
-    // avFrame->height = outHeight;
     _videoFrame->width  = _videoCodecContext->width;
     _videoFrame->height = _videoCodecContext->height;
 
@@ -246,6 +277,8 @@ void Video::addFrame(Image const & img)
     {
       throw runtime_error("avcodec_parameters_from_context failed");
     }
+
+
 
     /// TODO: consider SWS_BICUBIC for arg after _videoCodecContext->pix_fmt
     _swsContext = sws_getContext(_videoCodecContext->width, _videoCodecContext->height, _srcPixelFormat, _videoFrame->width, _videoFrame->height,
@@ -420,8 +453,6 @@ void Video::addFrame(Image const & img)
         _audioFrames.emplace_back(audioFrame);
       }
 
-
-
 #else
       while(true)
       {
@@ -467,7 +498,6 @@ void Video::addFrame(Image const & img)
       decode(inAudioCodecContext, inFrames, nullptr);
 #endif
 
-
       // /// flush the transcoder
       // AVFrame * audioFrame = genAudioFrame(inAudioCodecContext, samplesPerFrame);
       // swr_convert(_swrContext, audioFrame->data, _audioCodecContext->frame_size, 0, 0);
@@ -496,6 +526,11 @@ void Video::addFrame(Image const & img)
 
     /// open the file
     if(avio_open(&_fmtCtx->pb, _outPath.c_str(), AVIO_FLAG_WRITE) < 0) { throw runtime_error("avio_open failed"); }
+
+    /// enforce framerate
+    _videoStream->avg_frame_rate = {static_cast<i32>(_fps), 1};///
+
+    /// the following call recomputes_videoStream->time_base
     if(avformat_write_header(_fmtCtx, &_opts) < 0)  /// &opt
     {
       throw runtime_error("avformat_write_header failed");
@@ -515,10 +550,16 @@ void Video::addFrame(Image const & img)
     throw runtime_error("Video::addFrame: sws_scale failed");
   }
 
-  _videoFrame->pts = frameCounter++;
+  frameCounter++;
 
-  encode(_fmtCtx, _videoFrame, _videoStream, _videoCodecContext);
-
+  // if(av_compare_ts(frameCounter, _videoCodecContext->time_base, 1, {1, 1}) <= 0) /// TMP
+  // {
+    encode(_fmtCtx, _videoFrame, _videoStream, _videoCodecContext);
+    _videoFrame->pts = frameCounter;
+  // }
+// 
+  // _videoFrame->pts = frameCounter++;
+  // encode(_fmtCtx, _videoFrame, _videoStream, _videoCodecContex);
 
   if(hasAudio && _audioFrames.size() > 0)
   {
