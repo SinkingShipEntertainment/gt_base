@@ -29,61 +29,37 @@ bool encode(AVFormatContext * fmtCtx, AVFrame const * avFrame, AVStream * avStre
 {
   if(avcodec_send_frame(codecContext, avFrame) < 0) { throw runtime_error("avcodec_send_frame failed"); }
 
-  AVPacket * avPacket = av_packet_alloc();
-
   while(true)
   {
-    // AVPacket avPacket = av_packet_alloc();
-    // AVPacket avPacket = {0};
+    AVPacket avPacket = {0};
 
     /// for video returns AVERROR(EAGAIN) when a frame is sent to avcodec_send_frame, when avFrame is null it returns above 0
-    i32 ret = avcodec_receive_packet(codecContext, avPacket);
-    // i32 ret = avcodec_receive_packet(codecContext, &avPacket);
+    i32 ret = avcodec_receive_packet(codecContext, &avPacket);
     if(ret == AVERROR(EAGAIN))
     {
-      av_packet_free(&avPacket);
-      // av_packet_unref(&avPacket);
+      av_packet_unref(&avPacket);
       return false;
     }
     if(ret == AVERROR_EOF) 
     { 
-      // av_packet_rescale_ts(avPacket, codecContext->time_base, avStream->time_base);
-      // avPacket->stream_index = avStream->index;
-      // ret = av_interleaved_write_frame(fmtCtx, avPacket);
-      // av_packet_unref(avPacket);
-      // if(ret < 0) 
-      // { 
-      //   throw runtime_error("av_interleaved_write_frame failed"); 
-      // }
-
-      av_packet_free(&avPacket);
-      // av_packet_unref(&avPacket);
+      av_packet_unref(&avPacket);
       return true; 
     }
 
-    avPacket->time_base = codecContext->time_base;
+    // avPacket.time_base = codecContext->time_base;
 
     if(ret < 0) { throw runtime_error("encode: avcodec_receive_packet failed"); }
 
-    /// only get here on the final flush
+    /// for videeo only get here on the final flush
 
-    // av_packet_rescale_ts(avPacket, avPacket->time_base, codecContext->time_base);
-    // avPacket->time_base = codecContext->time_base;
+    av_packet_rescale_ts(&avPacket, codecContext->time_base, avStream->time_base);
+    avPacket.stream_index = avStream->index;
 
-    av_packet_rescale_ts(avPacket, codecContext->time_base, avStream->time_base);
-    avPacket->stream_index = avStream->index;
-    // av_packet_rescale_ts(&avPacket, codecContext->time_base, avStream->time_base);
-    // avPacket.stream_index = avStream->index;
-
-    // log_packet(fmtCtx, &avPacket);
-
-    ret = av_interleaved_write_frame(fmtCtx, avPacket);
-    // av_packet_unref(avPacket);
-    // ret = av_interleaved_write_frame(fmtCtx, &avPacket);
-    // av_packet_unref(&avPacket);
+    ret = av_interleaved_write_frame(fmtCtx, &avPacket);
+    av_packet_unref(&avPacket);
     if(ret < 0) { throw runtime_error("av_interleaved_write_frame failed"); }
   }
-  av_packet_free(&avPacket);
+
   return false;
 }
 
@@ -230,13 +206,7 @@ void Video::addFrame(Image const & img)
     _videoCodecContext->bit_rate = _bitRate;
 
     _videoCodecContext->time_base.num = 1;
-    _videoCodecContext->time_base.den = _fps; /// _fps - 1 26
-
-    // _videoCodecContext->time_base = av_d2q(_fps, INT_MAX);
-
-    // _videoCodecContext->framerate = av_d2q(_fps, INT_MAX);
-    _videoCodecContext->framerate.num = _fps - 1;
-    _videoCodecContext->framerate.den = 1;
+    _videoCodecContext->time_base.den = _fps;
 
     if(isInterframe)
     {
@@ -277,8 +247,6 @@ void Video::addFrame(Image const & img)
     {
       throw runtime_error("avcodec_parameters_from_context failed");
     }
-
-
 
     /// TODO: consider SWS_BICUBIC for arg after _videoCodecContext->pix_fmt
     _swsContext = sws_getContext(_videoCodecContext->width, _videoCodecContext->height, _srcPixelFormat, _videoFrame->width, _videoFrame->height,
@@ -528,7 +496,7 @@ void Video::addFrame(Image const & img)
     if(avio_open(&_fmtCtx->pb, _outPath.c_str(), AVIO_FLAG_WRITE) < 0) { throw runtime_error("avio_open failed"); }
 
     /// enforce framerate
-    _videoStream->avg_frame_rate = {static_cast<i32>(_fps), 1};///
+    _videoStream->avg_frame_rate = {static_cast<i32>(_fps), 1}; /// NOTE: RV requires this othwerwise it will use calculate the framerate incorrectly
 
     /// the following call recomputes_videoStream->time_base
     if(avformat_write_header(_fmtCtx, &_opts) < 0)  /// &opt
