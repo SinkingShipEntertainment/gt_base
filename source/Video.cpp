@@ -137,7 +137,7 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
       _videoStream(nullptr),
       _videoFrame(nullptr),
       _srcPixelFormat(AV_PIX_FMT_RGB24),
-      _dstPixelFormat(AV_PIX_FMT_YUV420P),
+      _dstPixelFormat(AV_PIX_FMT_YUV422P), /// TMP AV_PIX_FMT_YUV420P AV_PIX_FMT_YUV422P
       _swrContext(nullptr),
       _audioCodecContext(nullptr),
       _audioStream(nullptr),
@@ -171,6 +171,12 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
   // av_dict_set(&_opts, "crf", "23", 0); /// 0 23 (0 - 51) 0 is loseless, overrides bit rate?
 
   // if(avFormatStr == "h264") av_opt_set(&_opts, "preset", "slow", 0);
+
+  // av_opt_set(&_opts, "video_full_range_flag", "2", 0); /// AVCOL_RANGE_JPEG
+  // // av_opt_set(&_opts, "", "", 0);
+  // av_opt_set(&_opts, "transfer_characteristics", "8", 0); /// AVCOL_TRC_LINEAR
+  // // av_opt_set(&_opts, "colour_primaries", "", 0);
+  
 }
 
 Video::~Video()
@@ -226,7 +232,17 @@ void Video::addFrame(Image const & img)
     if(!_videoFrame) { throw runtime_error("av_frame_alloc failed"); }
     _videoFrame->pts = 0;
 
-    // _videoFrame->colorspace = AVCOL_SPC_UNSPECIFIED; /// TMP
+    /// TMP  
+    _videoCodecContext->color_range = AVCOL_RANGE_JPEG; 
+    _videoCodecContext->colorspace = AVCOL_SPC_RGB; /// AVCOL_SPC_BT709 AVCOL_SPC_RGB VCOL_SPC_UNSPECIFIED
+    _videoCodecContext->color_trc = AVCOL_TRC_LINEAR; 
+    _videoCodecContext->color_primaries = AVCOL_PRI_UNSPECIFIED; //AVCOL_PRI_BT2020; 
+
+    _videoFrame->color_range = _videoCodecContext->color_range; 
+    _videoFrame->colorspace = _videoCodecContext->colorspace;
+    _videoFrame->color_trc = _videoCodecContext->color_trc; 
+    _videoFrame->color_primaries = _videoCodecContext->color_primaries; 
+
 
     l.r("\n");
     
@@ -255,6 +271,7 @@ void Video::addFrame(Image const & img)
     _swsContext = sws_getContext(_videoCodecContext->width, _videoCodecContext->height, _srcPixelFormat, _videoFrame->width, _videoFrame->height,
                                  _videoCodecContext->pix_fmt, 0, 0, 0, 0);
     if(!_swsContext) { throw runtime_error("sws_getContext failed"); }
+
 
     /// audio initialization
     i32 samplesPerFrame = 0;
