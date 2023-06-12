@@ -137,7 +137,7 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
       _videoStream(nullptr),
       _videoFrame(nullptr),
       _srcPixelFormat(AV_PIX_FMT_RGB24),
-      _dstPixelFormat(AV_PIX_FMT_YUV422P), /// TMP AV_PIX_FMT_YUV420P AV_PIX_FMT_YUV422P
+      _dstPixelFormat(AV_PIX_FMT_YUV422P), /// TMP AV_PIX_FMT_YUV420P AV_PIX_FMT_YUV422P AV_PIX_FMT_YUV444P
       _swrContext(nullptr),
       _audioCodecContext(nullptr),
       _audioStream(nullptr),
@@ -175,7 +175,7 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
   // av_opt_set(&_opts, "video_full_range_flag", "2", 0); /// AVCOL_RANGE_JPEG
   // // av_opt_set(&_opts, "", "", 0);
   // av_opt_set(&_opts, "transfer_characteristics", "8", 0); /// AVCOL_TRC_LINEAR
-  // // av_opt_set(&_opts, "colour_primaries", "", 0);
+  // av_opt_set(&_opts, "colour_primaries", "", 0);
   
 }
 
@@ -208,6 +208,11 @@ void Video::addFrame(Image const & img)
     _videoCodecContext = avcodec_alloc_context3(videoCodec);
     if(!_videoCodecContext) { throw runtime_error("avcodec_alloc_context3 failed"); }
 
+    _videoCodecContext->color_primaries = AVCOL_PRI_BT709; /// AVCOL_PRI_BT709 AVCOL_PRI_BT2020 AVCOL_PRI_UNSPECIFIED  
+    _videoCodecContext->color_range = AVCOL_RANGE_JPEG; 
+    _videoCodecContext->color_trc = AVCOL_TRC_BT709;  /// AVCOL_TRC_IEC61966_2_1 AVCOL_TRC_LINEAR AVCOL_TRC_BT709 AVCOL_TRC_UNSPECIFIED 
+    _videoCodecContext->colorspace = AVCOL_SPC_RGB; /// AVCOL_SPC_BT709 AVCOL_SPC_RGB VCOL_SPC_UNSPECIFIED
+    
     _videoCodecContext->codec_id = _fmtCtx->oformat->video_codec;
     _videoCodecContext->bit_rate = _bitRate;
 
@@ -232,12 +237,7 @@ void Video::addFrame(Image const & img)
     if(!_videoFrame) { throw runtime_error("av_frame_alloc failed"); }
     _videoFrame->pts = 0;
 
-    /// TMP  
-    _videoCodecContext->color_range = AVCOL_RANGE_JPEG; 
-    _videoCodecContext->colorspace = AVCOL_SPC_RGB; /// AVCOL_SPC_BT709 AVCOL_SPC_RGB VCOL_SPC_UNSPECIFIED
-    _videoCodecContext->color_trc = AVCOL_TRC_LINEAR; 
-    _videoCodecContext->color_primaries = AVCOL_PRI_UNSPECIFIED; //AVCOL_PRI_BT2020; 
-
+    /// TMP
     _videoFrame->color_range = _videoCodecContext->color_range; 
     _videoFrame->colorspace = _videoCodecContext->colorspace;
     _videoFrame->color_trc = _videoCodecContext->color_trc; 
@@ -518,6 +518,7 @@ void Video::addFrame(Image const & img)
     /// enforce framerate
     _videoStream->avg_frame_rate = {static_cast<i32>(_fps), 1}; /// NOTE: RV requires this othwerwise it will use calculate the framerate incorrectly
 
+  
     /// the following call recomputes_videoStream->time_base
     if(avformat_write_header(_fmtCtx, &_opts) < 0)  /// &opt
     {
