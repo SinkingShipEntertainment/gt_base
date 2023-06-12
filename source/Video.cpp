@@ -169,8 +169,8 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
 
   /// codec specific options
   // av_dict_set(&_opts, "crf", "23", 0); /// 0 23 (0 - 51) 0 is loseless, overrides bit rate?
-  // av_dict_set(&_opts, "r", (f("%") % _fps).c_str(), 0);  /// frame rate TMP
-  // av_dict_set(&_opts, "framerate", (f("%") % _fps).c_str(), 0);  /// frame rate TMP
+
+  // if(avFormatStr == "h264") av_opt_set(&_opts, "preset", "slow", 0);
 }
 
 Video::~Video()
@@ -225,6 +225,9 @@ void Video::addFrame(Image const & img)
     _videoFrame = av_frame_alloc();
     if(!_videoFrame) { throw runtime_error("av_frame_alloc failed"); }
     _videoFrame->pts = 0;
+
+    // _videoFrame->colorspace = AVCOL_SPC_UNSPECIFIED; /// TMP
+
     l.r("\n");
     
     _videoCodecContext->width  = img.width;
@@ -520,14 +523,8 @@ void Video::addFrame(Image const & img)
 
   frameCounter++;
 
-  // if(av_compare_ts(frameCounter, _videoCodecContext->time_base, 1, {1, 1}) <= 0) /// TMP
-  // {
-    encode(_fmtCtx, _videoFrame, _videoStream, _videoCodecContext);
-    _videoFrame->pts = frameCounter;
-  // }
-// 
-  // _videoFrame->pts = frameCounter++;
-  // encode(_fmtCtx, _videoFrame, _videoStream, _videoCodecContex);
+  encode(_fmtCtx, _videoFrame, _videoStream, _videoCodecContext);
+  _videoFrame->pts = frameCounter;
 
   if(hasAudio && _audioFrames.size() > 0)
   {

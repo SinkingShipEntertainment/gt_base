@@ -1481,17 +1481,20 @@ void Image::write(string const & filepath)
 
   if(ext == ".exr")
   {
-    if(this->type == Image::UINT)
-    {
-      if(this->bytesPerComp == 1) /// convert to f16
-      {
-        this->convert(this->numComps, 2, Image::FP);
-      }
-    }
+    /// TMP
+    // if(this->type == Image::UINT) 
+    // {
+    //   if(this->bytesPerComp == 1) /// convert to f16
+    //   {
+    //     this->convert(this->numComps, 2, Image::FP);
+    //   }
+    // }
 
     Imf::PixelType imfType = _getImfPixelType(this);
 
     Imf::Header header(this->width, this->height);
+
+    header.compression() = Imf::PIZ_COMPRESSION; // ZIP_COMPRESSION;
 
     /// write header attributes
     for(auto const & ma: this->metaAttrs)
