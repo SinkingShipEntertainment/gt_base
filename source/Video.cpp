@@ -25,6 +25,11 @@ u32 audioBitRate                      = 64000;
 u32 audioSampleRate                   = 44100;
 enum AVSampleFormat audioSampleFormat = AV_SAMPLE_FMT_S16;
 
+// struct AVDictionary {
+// int count;
+// AVDictionaryEntry *elems;
+// };
+
 bool encode(AVFormatContext * fmtCtx, AVFrame const * avFrame, AVStream * avStream, AVCodecContext * codecContext)
 {
   if(avcodec_send_frame(codecContext, avFrame) < 0) { throw runtime_error("avcodec_send_frame failed"); }
@@ -137,7 +142,7 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
       _videoStream(nullptr),
       _videoFrame(nullptr),
       _srcPixelFormat(AV_PIX_FMT_RGB24),
-      _dstPixelFormat(AV_PIX_FMT_YUV422P), /// TMP AV_PIX_FMT_YUV420P AV_PIX_FMT_YUV422P AV_PIX_FMT_YUV444P
+      _dstPixelFormat(AV_PIX_FMT_YUV420P), /// TMP AV_PIX_FMT_YUV420P AV_PIX_FMT_YUV422P AV_PIX_FMT_YUV444P
       _swrContext(nullptr),
       _audioCodecContext(nullptr),
       _audioStream(nullptr),
@@ -176,6 +181,7 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
   // // av_opt_set(&_opts, "", "", 0);
   // av_opt_set(&_opts, "transfer_characteristics", "8", 0); /// AVCOL_TRC_LINEAR
   // av_opt_set(&_opts, "colour_primaries", "", 0);
+  // av_opt_set(&_opts, "thefoundry/Application", "balls", 0);
   
 }
 
@@ -208,10 +214,11 @@ void Video::addFrame(Image const & img)
     _videoCodecContext = avcodec_alloc_context3(videoCodec);
     if(!_videoCodecContext) { throw runtime_error("avcodec_alloc_context3 failed"); }
 
-    _videoCodecContext->color_primaries = AVCOL_PRI_BT709; /// AVCOL_PRI_BT709 AVCOL_PRI_BT2020 AVCOL_PRI_UNSPECIFIED  
+    _videoCodecContext->colorspace = AVCOL_SPC_BT709 ; /// AVCOL_SPC_RGB  
+    _videoCodecContext->color_primaries = AVCOL_PRI_BT709 ; /// AVCOL_PRI_BT709 AVCOL_PRI_BT2020 AVCOL_PRI_UNSPECIFIED  
+    _videoCodecContext->color_trc = AVCOL_TRC_BT709 ;
     _videoCodecContext->color_range = AVCOL_RANGE_JPEG; 
-    _videoCodecContext->color_trc = AVCOL_TRC_BT709;  /// AVCOL_TRC_IEC61966_2_1 AVCOL_TRC_LINEAR AVCOL_TRC_BT709 AVCOL_TRC_UNSPECIFIED 
-    _videoCodecContext->colorspace = AVCOL_SPC_RGB; /// AVCOL_SPC_BT709 AVCOL_SPC_RGB VCOL_SPC_UNSPECIFIED
+    _videoCodecContext->chroma_sample_location = AVCHROMA_LOC_LEFT;
     
     _videoCodecContext->codec_id = _fmtCtx->oformat->video_codec;
     _videoCodecContext->bit_rate = _bitRate;
@@ -237,12 +244,17 @@ void Video::addFrame(Image const & img)
     if(!_videoFrame) { throw runtime_error("av_frame_alloc failed"); }
     _videoFrame->pts = 0;
 
-    /// TMP
-    _videoFrame->color_range = _videoCodecContext->color_range; 
-    _videoFrame->colorspace = _videoCodecContext->colorspace;
-    _videoFrame->color_trc = _videoCodecContext->color_trc; 
-    _videoFrame->color_primaries = _videoCodecContext->color_primaries; 
+    // _videoFrame->colorspace = AVCOL_SPC_BT709; // AVCOL_SPC_UNSPECIFIED; // UNSPECIFIED BT709
+    // _videoFrame->color_primaries = AVCOL_PRI_BT709 ;
+    // _videoFrame->color_trc = AVCOL_TRC_BT709;      ///AVCOL_TRC_LINEAR
+    // _videoFrame->color_range = AVCOL_RANGE_JPEG; 
+    // _videoFrame->chroma_location = AVCHROMA_LOC_LEFT;
 
+    _videoFrame->colorspace = _videoCodecContext->colorspace;
+    _videoFrame->color_primaries = _videoCodecContext->color_primaries;
+    _videoFrame->color_trc = _videoCodecContext->color_trc;     
+    _videoFrame->color_range = _videoCodecContext->color_range; 
+    _videoFrame->chroma_location = _videoCodecContext->chroma_sample_location;
 
     l.r("\n");
     
@@ -255,6 +267,13 @@ void Video::addFrame(Image const & img)
     _videoCodecContext->pix_fmt = _dstPixelFormat;
 
     if(avcodec_open2(_videoCodecContext, videoCodec, &_opts) < 0) { throw runtime_error("avcodec_open2 failed"); }
+
+    // /// TMP
+    // _videoCodecContext->colorspace = _videoFrame->colorspace  ; /// AVCOL_SPC_RGB  
+    // _videoCodecContext->color_primaries = _videoFrame->color_primaries ; /// AVCOL_PRI_BT709 AVCOL_PRI_BT2020 AVCOL_PRI_UNSPECIFIED  
+    // _videoCodecContext->color_trc = _videoFrame->color_trc ;
+    // _videoCodecContext->color_range = _videoFrame->color_range; 
+    // _videoCodecContext->chroma_sample_location = _videoFrame->chroma_location;
 
     _videoFrame->width  = _videoCodecContext->width;
     _videoFrame->height = _videoCodecContext->height;
@@ -508,9 +527,37 @@ void Video::addFrame(Image const & img)
 
     }  /// end of audio input decoding
 
+
+    // av_opt_set(&_opts, "encoder", "H.264", 0);
+    // av_opt_set(&_opts, "application", "balls", 0);
+    // av_dict_set(&_fmtCtx->metadata, "aplication", "balls", 0);
+    // av_dict_set(&_fmtCtx->metadata, "uk.co.thefoundry.Application", "Nuke", 0);
+
+    // if(avFormatStr == "h264") 
+    av_dict_set(&_fmtCtx->metadata, "encoder", "H.264", 0);
+
+    // vector<AVDictionaryEntry> entries;
+    // AVDictionaryEntry a, b;
+
+    // b.key = "encoder";
+    // b.value = "H.264";
+    // entries.emplace_back(b);
+
+    // a.key = "uk.co.thefoundry.Application";
+    // a.value = "Nuke";
+    // entries.emplace_back(a);
+
+    // AVDictionary d;
+    // d.count = 2;
+    // d.elems = entries.data();
+
+    // av_dict_set(&_fmtCtx->metadata, "encoder", "H.264", 0)
+
+    // av_dict_copy(&_fmtCtx->metadata, &d, 0);
+
     // l.i("__ av dump format __");
-    av_dump_format(_fmtCtx, 0, _outPath.c_str(), 1);  // NOTE: just a printout
-    l.r("\n");
+    // av_dump_format(_fmtCtx, 0, _outPath.c_str(), 1);  // NOTE: just a printout
+    // l.r("\n");
 
     /// open the file
     if(avio_open(&_fmtCtx->pb, _outPath.c_str(), AVIO_FLAG_WRITE) < 0) { throw runtime_error("avio_open failed"); }
@@ -520,7 +567,8 @@ void Video::addFrame(Image const & img)
 
   
     /// the following call recomputes_videoStream->time_base
-    if(avformat_write_header(_fmtCtx, &_opts) < 0)  /// &opt
+    // if(avformat_write_header(_fmtCtx, &_opts) < 0)  /// &opt
+    if(avformat_write_header(_fmtCtx, &_fmtCtx->metadata) < 0)  /// &opt
     {
       throw runtime_error("avformat_write_header failed");
     }
