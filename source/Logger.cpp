@@ -9,12 +9,7 @@ Logger::Logger(string const & label, string const & filePath)
 {
   if(filePath.size())
   {
-    if(_logFile.is_open()) { _logFile.close(); }
-
-    _logFile.open(filePath.c_str(), ios::out | ios::trunc);
-
-    cout.rdbuf(_logFile.rdbuf());
-
+    this->setLogPath(filePath);
     _label = "";
   }
   else
@@ -30,6 +25,19 @@ Logger::~Logger()
     // _logFile.flush(); /// this might be crashing maya
     _logFile.close();
   }
+}
+
+void Logger::setLogPath(string const & filePath)
+{
+  if(_logFile.is_open()) 
+  { 
+    _logFile.flush();
+  _logFile.close(); 
+  }
+
+  _logFile.open(filePath.c_str(), ios::out | ios::trunc);
+
+  cout.rdbuf(_logFile.rdbuf());
 }
 
 /// debug

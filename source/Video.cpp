@@ -131,6 +131,7 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
       isInterframe(true),  /// interframe or intraframe: h264 is but dnxhd for example is not
       _written(false),
       _outPath(outPath),
+      _avFormatStr(avFormatStr),
       _fps(fps),
       _bitRate(bitRate),
       _gopSize(gopSize),
@@ -142,7 +143,7 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
       _videoStream(nullptr),
       _videoFrame(nullptr),
       _srcPixelFormat(AV_PIX_FMT_RGB24),
-      _dstPixelFormat(AV_PIX_FMT_YUV420P), /// TMP AV_PIX_FMT_YUV420P AV_PIX_FMT_YUV422P AV_PIX_FMT_YUV444P
+      _dstPixelFormat(AV_PIX_FMT_YUV420P), /// AV_PIX_FMT_YUV420P AV_PIX_FMT_YUV422P AV_PIX_FMT_YUV444P 
       _swrContext(nullptr),
       _audioCodecContext(nullptr),
       _audioStream(nullptr),
@@ -150,11 +151,19 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
 {
   av_log_set_callback(&avLogCb);
 
-  string avFormatStr_(avFormatStr);
+  string avFormatStr_(_avFormatStr);
+
+  enum AVCodecID avCodecId = AV_CODEC_ID_NONE;
 
   if(avFormatStr_ == "h264")
   {
+    avCodecId = AV_CODEC_ID_H264;
     avFormatStr_ = "mov";  /// mov uses h264 via lib264
+  }
+  if(avFormatStr_ == "h265")
+  {
+    avCodecId = AV_CODEC_ID_H265;
+    avFormatStr_ = "mov";
   }
   else if(avFormatStr_ == "dnxhd")  /// dnxhd is intraframe
   {
@@ -166,10 +175,21 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
     return;
   }
 
+  // av_register_all();
+
   if(avformat_alloc_output_context2(&_fmtCtx, NULL, avFormatStr_.c_str(), _outPath.c_str()) < 0)
   {
     throw runtime_error("avformat_alloc_output_context2 failed");
   }
+
+  /// TMP
+  if(avformat_query_codec(_fmtCtx->oformat, avCodecId, FF_COMPLIANCE_NORMAL) < 0)
+  {
+    l.e(f("unsupported format: %") % avFormatStr_);
+    return;
+  }
+  // _fmtCtx->oformat->video_codec = AV_CODEC_ID_H265;
+
   // l.d(f("format: %\n") % _fmtCtx->oformat->name);
 
   /// codec specific options
@@ -207,18 +227,15 @@ void Video::addFrame(Image const & img)
     /// video initialization
     if(_fmtCtx->oformat->video_codec == AV_CODEC_ID_NONE) { throw runtime_error("no video codec"); }
 
+    /// TMP
+    // AVCodec const * videoCodec = avcodec_find_encoder(AV_CODEC_ID_H265);
+
     AVCodec const * videoCodec = avcodec_find_encoder(_fmtCtx->oformat->video_codec);
     if(!videoCodec) { throw runtime_error("avcodec_find_encoder failed"); }
     l.r(f("codec: %\n") % videoCodec->name);
 
     _videoCodecContext = avcodec_alloc_context3(videoCodec);
     if(!_videoCodecContext) { throw runtime_error("avcodec_alloc_context3 failed"); }
-
-    _videoCodecContext->colorspace = AVCOL_SPC_BT709 ; /// AVCOL_SPC_RGB  
-    _videoCodecContext->color_primaries = AVCOL_PRI_BT709 ; /// AVCOL_PRI_BT709 AVCOL_PRI_BT2020 AVCOL_PRI_UNSPECIFIED  
-    _videoCodecContext->color_trc = AVCOL_TRC_BT709 ;
-    _videoCodecContext->color_range = AVCOL_RANGE_JPEG; 
-    _videoCodecContext->chroma_sample_location = AVCHROMA_LOC_LEFT;
     
     _videoCodecContext->codec_id = _fmtCtx->oformat->video_codec;
     _videoCodecContext->bit_rate = _bitRate;
@@ -226,6 +243,8 @@ void Video::addFrame(Image const & img)
     _videoCodecContext->time_base.num = 1;
     _videoCodecContext->time_base.den = _fps;
 
+    // _videoCodecContext->chroma_sample_location = AVCHROMA_LOC_CENTER;// TMP
+ 
     if(isInterframe)
     {
       _videoCodecContext->gop_size     = _gopSize;
@@ -244,17 +263,12 @@ void Video::addFrame(Image const & img)
     if(!_videoFrame) { throw runtime_error("av_frame_alloc failed"); }
     _videoFrame->pts = 0;
 
-    // _videoFrame->colorspace = AVCOL_SPC_BT709; // AVCOL_SPC_UNSPECIFIED; // UNSPECIFIED BT709
-    // _videoFrame->color_primaries = AVCOL_PRI_BT709 ;
-    // _videoFrame->color_trc = AVCOL_TRC_BT709;      ///AVCOL_TRC_LINEAR
-    // _videoFrame->color_range = AVCOL_RANGE_JPEG; 
-    // _videoFrame->chroma_location = AVCHROMA_LOC_LEFT;
-
-    _videoFrame->colorspace = _videoCodecContext->colorspace;
-    _videoFrame->color_primaries = _videoCodecContext->color_primaries;
-    _videoFrame->color_trc = _videoCodecContext->color_trc;     
-    _videoFrame->color_range = _videoCodecContext->color_range; 
-    _videoFrame->chroma_location = _videoCodecContext->chroma_sample_location;
+    _videoFrame->colorspace = AVCOL_SPC_BT709;
+    _videoFrame->color_primaries = AVCOL_PRI_BT709 ;
+    _videoFrame->color_trc = AVCOL_TRC_BT709;
+    _videoFrame->color_range = AVCOL_RANGE_JPEG; 
+    _videoFrame->chroma_location = AVCHROMA_LOC_CENTER; // LEFT;
+    // _videoFrame->chroma_location = _videoCodecContext->chroma_sample_location;
 
     l.r("\n");
     
@@ -266,14 +280,13 @@ void Video::addFrame(Image const & img)
     if(img.numComps == 4) { _srcPixelFormat = AV_PIX_FMT_RGBA; }
     _videoCodecContext->pix_fmt = _dstPixelFormat;
 
-    if(avcodec_open2(_videoCodecContext, videoCodec, &_opts) < 0) { throw runtime_error("avcodec_open2 failed"); }
-
-    // /// TMP
-    // _videoCodecContext->colorspace = _videoFrame->colorspace  ; /// AVCOL_SPC_RGB  
-    // _videoCodecContext->color_primaries = _videoFrame->color_primaries ; /// AVCOL_PRI_BT709 AVCOL_PRI_BT2020 AVCOL_PRI_UNSPECIFIED  
-    // _videoCodecContext->color_trc = _videoFrame->color_trc ;
-    // _videoCodecContext->color_range = _videoFrame->color_range; 
+    _videoCodecContext->colorspace = _videoFrame->colorspace ; 
+    _videoCodecContext->color_primaries = _videoFrame->color_primaries;  
+    _videoCodecContext->color_trc = _videoFrame->color_trc;
+    _videoCodecContext->color_range = _videoFrame->color_range; 
     // _videoCodecContext->chroma_sample_location = _videoFrame->chroma_location;
+
+    if(avcodec_open2(_videoCodecContext, videoCodec, &_opts) < 0) { throw runtime_error("avcodec_open2 failed"); }
 
     _videoFrame->width  = _videoCodecContext->width;
     _videoFrame->height = _videoCodecContext->height;
@@ -286,11 +299,29 @@ void Video::addFrame(Image const & img)
       throw runtime_error("avcodec_parameters_from_context failed");
     }
 
+    /// TMP: SWS_CS_ITU709, AVCOL_SPC_BT709
+
+
     /// TODO: consider SWS_BICUBIC for arg after _videoCodecContext->pix_fmt
     _swsContext = sws_getContext(_videoCodecContext->width, _videoCodecContext->height, _srcPixelFormat, _videoFrame->width, _videoFrame->height,
                                  _videoCodecContext->pix_fmt, 0, 0, 0, 0);
     if(!_swsContext) { throw runtime_error("sws_getContext failed"); }
 
+    int in_full, out_full, brightness, contrast, saturation;
+    const int *inv_table, *table;
+
+    sws_getColorspaceDetails(_swsContext, (int **)&inv_table, &in_full,
+                                 (int **)&table, &out_full,
+                                 &brightness, &contrast, &saturation);
+
+    table = sws_getCoefficients(AVCOL_SPC_BT709);
+
+    sws_setColorspaceDetails(_swsContext, inv_table, in_full,
+                                 table, out_full,
+                                 brightness, contrast, saturation);
+
+    // i8 * outMatrix = 
+    // sws_setColorspaceDetails
 
     /// audio initialization
     i32 samplesPerFrame = 0;
@@ -533,8 +564,7 @@ void Video::addFrame(Image const & img)
     // av_dict_set(&_fmtCtx->metadata, "aplication", "balls", 0);
     // av_dict_set(&_fmtCtx->metadata, "uk.co.thefoundry.Application", "Nuke", 0);
 
-    // if(avFormatStr == "h264") 
-    av_dict_set(&_fmtCtx->metadata, "encoder", "H.264", 0);
+    if(_avFormatStr == "h264") av_dict_set(&_fmtCtx->metadata, "encoder", "H.264", 0);
 
     // vector<AVDictionaryEntry> entries;
     // AVDictionaryEntry a, b;
@@ -558,6 +588,8 @@ void Video::addFrame(Image const & img)
     // l.i("__ av dump format __");
     // av_dump_format(_fmtCtx, 0, _outPath.c_str(), 1);  // NOTE: just a printout
     // l.r("\n");
+
+    _videoCodecContext->chroma_sample_location = AVCHROMA_LOC_CENTER;
 
     /// open the file
     if(avio_open(&_fmtCtx->pb, _outPath.c_str(), AVIO_FLAG_WRITE) < 0) { throw runtime_error("avio_open failed"); }
@@ -586,6 +618,10 @@ void Video::addFrame(Image const & img)
   {
     throw runtime_error("Video::addFrame: sws_scale failed");
   }
+
+  /// TMP
+  // _videoFrame->linesize = reinterpret_cast<i32 *>(srcStride);
+  // memcpy(_videoFrame->data, img.data, img.height * img.pitch);
 
   frameCounter++;
 

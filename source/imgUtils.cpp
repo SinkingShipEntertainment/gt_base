@@ -3,6 +3,7 @@
 #include "gt_base/types/f32x2.h"
 #include "gt_base/types/f32x3.h"
 #include "gt_base/types/f32x4.h"
+#include "gt_base/types/f32x3x3.h"
 #include "gt_base/functions.h"
 #include "gt_base/string.h"
 #include "gt_base/Image.h"
@@ -71,4 +72,34 @@ void gt::transformColor(Image & img, string const & inColorSpace, string const &
   {
     throw runtime_error(f("imgUtils::transformColor: OpenColorIO error caught...\n%") % exception.what());
   }  
+}
+
+
+void gt::transformColor(Image & img, f32x3x3 const & mat)
+{
+  for(u32 y = 0; y < img.height; ++y)
+  {
+    for(u32 x = 0; x < img.width; ++x)
+    {
+      f32x4 px = img.getPixel(x, y);
+      f32x3 px3 = px.xyz();
+      // px3 = mat * px3;
+      px3 = px3 * mat;
+      img.setPixel(x, y, f32x4(px3, px.w));
+    }
+  }
+
+  // if(img.type != Image::FP) throw runtime_error("imgUtils::transformColor: only FP images supported");
+
+  // ptrdiff_t chanStrideBytes = img.bytesPerComp;
+  // ptrdiff_t xStrideBytes = img.bytesPerPixel;
+  // ptrdiff_t yStrideBytes = img.width * img.bytesPerPixel;
+
+  // OCIO::PackedImageDesc ocioImg(img.data, img.width, img.height, img.numComps, OCIO::BitDepth::BIT_DEPTH_F32, chanStrideBytes, xStrideBytes, yStrideBytes);
+
+  // OCIO::ConstCPUProcessorRcPtr ocioPrc = OCIO::MatrixTransform::Create()->createEditableCopy();
+  // OCIO::MatrixTransform * matPrc = dynamic_cast<OCIO::MatrixTransform *>(ocioPrc.get());
+  // matPrc->setMatrix(mat.data());
+
+  // ocioPrc->apply(ocioImg);
 }

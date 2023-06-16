@@ -9,6 +9,7 @@
     "./source/types/f32x2.cpp",
     "./source/types/f32x3.cpp",
     "./source/types/f32x4.cpp",
+    "./source/types/f32x3x3.cpp",
     "./source/functions.cpp",
     "./source/string.cpp",
     "./source/Logger.cpp",

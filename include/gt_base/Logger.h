@@ -15,6 +15,8 @@ public:
   Logger(std::string const & label = std::string(), std::string const & filePath = std::string());
   ~Logger();
 
+  void setLogPath(std::string const & filePath);
+
   void debug(u16 i);
   void debug(std::string const & s);
 

@@ -55,6 +55,7 @@ class Video
   
   bool _written;
   std::string _outPath;
+  std::string _avFormatStr;
   i32 _fps;
   i64 _bitRate;
   i32 _gopSize;
@@ -67,7 +68,6 @@ class Video
 
   /// video
   SwsContext * _swsContext;
-  // AVCodec const * _videoCodec;
   AVCodecContext * _videoCodecContext;
   AVStream * _videoStream;
   AVFrame * _videoFrame;
@@ -79,7 +79,6 @@ class Video
   SwrContext * _swrContext;
   AVCodecContext * _audioCodecContext;
   AVStream * _audioStream;
-  // AVFrame * _audioFrame;
   std::vector<AVFrame*> _audioFrames; 
 
   f32 _audioDuration;
