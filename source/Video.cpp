@@ -267,7 +267,7 @@ void Video::addFrame(Image const & img)
     _videoFrame->color_primaries = AVCOL_PRI_BT709 ;
     _videoFrame->color_trc = AVCOL_TRC_BT709;
     _videoFrame->color_range = AVCOL_RANGE_JPEG; 
-    _videoFrame->chroma_location = AVCHROMA_LOC_CENTER; // LEFT;
+    _videoFrame->chroma_location = AVCHROMA_LOC_LEFT; // LEFT CENTER
     // _videoFrame->chroma_location = _videoCodecContext->chroma_sample_location;
 
     l.r("\n");
@@ -284,7 +284,7 @@ void Video::addFrame(Image const & img)
     _videoCodecContext->color_primaries = _videoFrame->color_primaries;  
     _videoCodecContext->color_trc = _videoFrame->color_trc;
     _videoCodecContext->color_range = _videoFrame->color_range; 
-    // _videoCodecContext->chroma_sample_location = _videoFrame->chroma_location;
+    _videoCodecContext->chroma_sample_location = _videoFrame->chroma_location;
 
     if(avcodec_open2(_videoCodecContext, videoCodec, &_opts) < 0) { throw runtime_error("avcodec_open2 failed"); }
 
@@ -316,12 +316,11 @@ void Video::addFrame(Image const & img)
 
     table = sws_getCoefficients(AVCOL_SPC_BT709);
 
+    out_full = _videoCodecContext->color_range;
+
     sws_setColorspaceDetails(_swsContext, inv_table, in_full,
                                  table, out_full,
                                  brightness, contrast, saturation);
-
-    // i8 * outMatrix = 
-    // sws_setColorspaceDetails
 
     /// audio initialization
     i32 samplesPerFrame = 0;
