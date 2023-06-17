@@ -75,6 +75,8 @@ class Video
   AVPixelFormat _srcPixelFormat;
   AVPixelFormat _dstPixelFormat;
 
+  bool _bt709ColorSpace;
+
   /// audio
   SwrContext * _swrContext;
   AVCodecContext * _audioCodecContext;

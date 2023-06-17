@@ -25,10 +25,6 @@ u32 audioBitRate                      = 64000;
 u32 audioSampleRate                   = 44100;
 enum AVSampleFormat audioSampleFormat = AV_SAMPLE_FMT_S16;
 
-// struct AVDictionary {
-// int count;
-// AVDictionaryEntry *elems;
-// };
 
 bool encode(AVFormatContext * fmtCtx, AVFrame const * avFrame, AVStream * avStream, AVCodecContext * codecContext)
 {
@@ -137,7 +133,7 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
       _gopSize(gopSize),
       _max_b_frames(max_b_frames),
       _fmtCtx(nullptr),
-      _opts(nullptr),
+      // _opts(nullptr),
       _swsContext(nullptr),
       _videoCodecContext(nullptr),
       _videoStream(nullptr),
@@ -147,62 +143,45 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
       _swrContext(nullptr),
       _audioCodecContext(nullptr),
       _audioStream(nullptr),
-      _audioDuration(0)
+      _audioDuration(0),
+      _bt709ColorSpace(false)
 {
   av_log_set_callback(&avLogCb);
 
-  string avFormatStr_(avFormatStr);
+  string containerStr(avFormatStr);
 
   enum AVCodecID avCodecId = AV_CODEC_ID_NONE;
 
-  if(avFormatStr_ == "h264")
+  if(containerStr == "h264")
   {
     avCodecId = AV_CODEC_ID_H264;
-    avFormatStr_ = "mov";  /// mov uses h264 via lib264
+    containerStr = "mov";  /// mov uses h264 via lib264
+    _bt709ColorSpace = true;
   }
-  else if(avFormatStr_ == "h265")
+  else if(containerStr == "h265")
   {
     avCodecId = AV_CODEC_ID_H265;
-    avFormatStr_ = "mov";
+    containerStr = "mov";
   }
-  else if(avFormatStr_ == "dnxhd")  /// dnxhd is intraframe
+  else if(containerStr == "dnxhd")  /// dnxhd is intraframe
   {
     isInterframe = false;
   }
   else
   {
-    l.e(f("unsupported format: %") % avFormatStr_);
+    l.e(f("unsupported format: %") % containerStr);
     return;
   }
 
-  // av_register_all();
-
-  if(avformat_alloc_output_context2(&_fmtCtx, NULL, avFormatStr_.c_str(), _outPath.c_str()) < 0)
+  if(avformat_alloc_output_context2(&_fmtCtx, NULL, containerStr.c_str(), _outPath.c_str()) < 0)
   {
     throw runtime_error("avformat_alloc_output_context2 failed");
   }
 
-  /// TMP
   if(avformat_query_codec(_fmtCtx->oformat, avCodecId, FF_COMPLIANCE_NORMAL) < 0)
   {
-    l.e(f("unsupported format: %") % avFormatStr_);
-    return;
+    throw runtime_error(f("unsupported format: %") % containerStr);
   }
-  // _fmtCtx->oformat->video_codec = AV_CODEC_ID_H265;
-
-  // l.d(f("format: %\n") % _fmtCtx->oformat->name);
-
-  /// codec specific options
-  // av_dict_set(&_opts, "crf", "23", 0); /// 0 23 (0 - 51) 0 is loseless, overrides bit rate?
-
-  // if(avFormatStr == "h264") av_opt_set(&_opts, "preset", "slow", 0);
-
-  // av_opt_set(&_opts, "video_full_range_flag", "2", 0); /// AVCOL_RANGE_JPEG
-  // // av_opt_set(&_opts, "", "", 0);
-  // av_opt_set(&_opts, "transfer_characteristics", "8", 0); /// AVCOL_TRC_LINEAR
-  // av_opt_set(&_opts, "colour_primaries", "", 0);
-  // av_opt_set(&_opts, "thefoundry/Application", "balls", 0);
-  
 }
 
 Video::~Video()
@@ -214,10 +193,9 @@ Video::~Video()
 /// @param filePath
 void Video::addAudio(string const & filePath, u32 numFrames)
 {
-  /// TMP
-  // _audioPath = filePath; /// TODO: validate audio file path
-  // _audioDuration = static_cast<f32>(numFrames) / static_cast<f32>(_fps);
-  // hasAudio = true;
+  _audioPath = filePath; /// TODO: validate audio file path
+  _audioDuration = static_cast<f32>(numFrames) / static_cast<f32>(_fps);
+  hasAudio = true;
 }
 
 void Video::addFrame(Image const & img)
@@ -226,9 +204,6 @@ void Video::addFrame(Image const & img)
   {
     /// video initialization
     if(_fmtCtx->oformat->video_codec == AV_CODEC_ID_NONE) { throw runtime_error("no video codec"); }
-
-    /// TMP
-    // AVCodec const * videoCodec = avcodec_find_encoder(AV_CODEC_ID_H265);
 
     AVCodec const * videoCodec = avcodec_find_encoder(_fmtCtx->oformat->video_codec);
     if(!videoCodec) { throw runtime_error("avcodec_find_encoder failed"); }
@@ -243,14 +218,10 @@ void Video::addFrame(Image const & img)
     _videoCodecContext->time_base.num = 1;
     _videoCodecContext->time_base.den = _fps;
 
-    // _videoCodecContext->chroma_sample_location = AVCHROMA_LOC_CENTER;// TMP
- 
     if(isInterframe)
     {
       _videoCodecContext->gop_size     = _gopSize;
       _videoCodecContext->max_b_frames = _max_b_frames;
-      // codeContext->rc_min_rate
-      // codeContext->rc_max_rate
     }
 
     _videoStream = avformat_new_stream(_fmtCtx, NULL);
@@ -263,12 +234,14 @@ void Video::addFrame(Image const & img)
     if(!_videoFrame) { throw runtime_error("av_frame_alloc failed"); }
     _videoFrame->pts = 0;
 
-    _videoFrame->colorspace = AVCOL_SPC_BT709;
-    _videoFrame->color_primaries = AVCOL_PRI_BT709 ;
-    _videoFrame->color_trc = AVCOL_TRC_BT709;
-    _videoFrame->color_range = AVCOL_RANGE_JPEG; 
-    _videoFrame->chroma_location = AVCHROMA_LOC_LEFT; // LEFT CENTER
-    // _videoFrame->chroma_location = _videoCodecContext->chroma_sample_location;
+    if(_bt709ColorSpace)
+    {
+      _videoFrame->colorspace = AVCOL_SPC_BT709;
+      _videoFrame->color_primaries = AVCOL_PRI_BT709 ;
+      _videoFrame->color_trc = AVCOL_TRC_BT709;
+      _videoFrame->color_range = AVCOL_RANGE_JPEG; 
+      _videoFrame->chroma_location = AVCHROMA_LOC_LEFT;
+    }
 
     l.r("\n");
     
@@ -286,7 +259,8 @@ void Video::addFrame(Image const & img)
     _videoCodecContext->color_range = _videoFrame->color_range; 
     _videoCodecContext->chroma_sample_location = _videoFrame->chroma_location;
 
-    if(avcodec_open2(_videoCodecContext, videoCodec, &_opts) < 0) { throw runtime_error("avcodec_open2 failed"); }
+    if(avcodec_open2(_videoCodecContext, videoCodec, nullptr) < 0) { throw runtime_error("avcodec_open2 failed"); }
+    // if(avcodec_open2(_videoCodecContext, videoCodec, &_opts) < 0) { throw runtime_error("avcodec_open2 failed"); }
 
     _videoFrame->width  = _videoCodecContext->width;
     _videoFrame->height = _videoCodecContext->height;
@@ -299,28 +273,27 @@ void Video::addFrame(Image const & img)
       throw runtime_error("avcodec_parameters_from_context failed");
     }
 
-    /// TMP: SWS_CS_ITU709, AVCOL_SPC_BT709
-
-
-    /// TODO: consider SWS_BICUBIC for arg after _videoCodecContext->pix_fmt
     _swsContext = sws_getContext(_videoCodecContext->width, _videoCodecContext->height, _srcPixelFormat, _videoFrame->width, _videoFrame->height,
                                  _videoCodecContext->pix_fmt, 0, 0, 0, 0);
     if(!_swsContext) { throw runtime_error("sws_getContext failed"); }
 
-    int in_full, out_full, brightness, contrast, saturation;
-    const int *inv_table, *table;
+    if(_bt709ColorSpace)
+    {
+      i32 in_full, out_full, brightness, contrast, saturation;
+      i32 const * inv_table, * table;
 
-    sws_getColorspaceDetails(_swsContext, (int **)&inv_table, &in_full,
-                                 (int **)&table, &out_full,
-                                 &brightness, &contrast, &saturation);
+      sws_getColorspaceDetails(_swsContext, (i32 **)&inv_table, &in_full,
+                                  (i32 **)&table, &out_full,
+                                  &brightness, &contrast, &saturation);
 
-    table = sws_getCoefficients(AVCOL_SPC_BT709);
+      table = sws_getCoefficients(AVCOL_SPC_BT709);
 
-    out_full = _videoCodecContext->color_range;
+      out_full = _videoCodecContext->color_range;
 
-    sws_setColorspaceDetails(_swsContext, inv_table, in_full,
-                                 table, out_full,
-                                 brightness, contrast, saturation);
+      sws_setColorspaceDetails(_swsContext, inv_table, in_full,
+                                  table, out_full,
+                                  brightness, contrast, saturation);
+    }
 
     /// audio initialization
     i32 samplesPerFrame = 0;
@@ -397,7 +370,8 @@ void Video::addFrame(Image const & img)
       av_channel_layout_copy(&_audioCodecContext->ch_layout, &outChannelLayout);
 
       /// NOTE: avcodec_open2 sets the frame_size unless audioCodec->capabilities has AV_CODEC_CAP_VARIABLE_FRAME_SIZE
-      if(avcodec_open2(_audioCodecContext, audioCodec, &_opts) < 0) { throw runtime_error("Video::addFrame: avcodec_open2 failed"); }
+      if(avcodec_open2(_audioCodecContext, audioCodec, nullptr) < 0) { throw runtime_error("Video::addFrame: avcodec_open2 failed"); }
+      // if(avcodec_open2(_audioCodecContext, audioCodec, &_opts) < 0) { throw runtime_error("Video::addFrame: avcodec_open2 failed"); }
 
       _audioStream     = avformat_new_stream(_fmtCtx, nullptr);
       _audioStream->id = _fmtCtx->nb_streams - 1;
@@ -557,38 +531,9 @@ void Video::addFrame(Image const & img)
 
     }  /// end of audio input decoding
 
-
-    // av_opt_set(&_opts, "encoder", "H.264", 0);
-    // av_opt_set(&_opts, "application", "balls", 0);
-    // av_dict_set(&_fmtCtx->metadata, "aplication", "balls", 0);
-    // av_dict_set(&_fmtCtx->metadata, "uk.co.thefoundry.Application", "Nuke", 0);
-
     if(_avFormatStr == "h264") av_dict_set(&_fmtCtx->metadata, "encoder", "H.264", 0);
 
-    // vector<AVDictionaryEntry> entries;
-    // AVDictionaryEntry a, b;
-
-    // b.key = "encoder";
-    // b.value = "H.264";
-    // entries.emplace_back(b);
-
-    // a.key = "uk.co.thefoundry.Application";
-    // a.value = "Nuke";
-    // entries.emplace_back(a);
-
-    // AVDictionary d;
-    // d.count = 2;
-    // d.elems = entries.data();
-
-    // av_dict_set(&_fmtCtx->metadata, "encoder", "H.264", 0)
-
-    // av_dict_copy(&_fmtCtx->metadata, &d, 0);
-
-    // l.i("__ av dump format __");
-    // av_dump_format(_fmtCtx, 0, _outPath.c_str(), 1);  // NOTE: just a printout
-    // l.r("\n");
-
-    _videoCodecContext->chroma_sample_location = AVCHROMA_LOC_CENTER;
+    // _videoCodecContext->chroma_sample_location = AVCHROMA_LOC_CENTER; /// TODO: ???
 
     /// open the file
     if(avio_open(&_fmtCtx->pb, _outPath.c_str(), AVIO_FLAG_WRITE) < 0) { throw runtime_error("avio_open failed"); }
@@ -596,7 +541,6 @@ void Video::addFrame(Image const & img)
     /// enforce framerate
     _videoStream->avg_frame_rate = {static_cast<i32>(_fps), 1}; /// NOTE: RV requires this othwerwise it will use calculate the framerate incorrectly
 
-  
     /// the following call recomputes_videoStream->time_base
     // if(avformat_write_header(_fmtCtx, &_opts) < 0)  /// &opt
     if(avformat_write_header(_fmtCtx, &_fmtCtx->metadata) < 0)  /// &opt
@@ -617,10 +561,6 @@ void Video::addFrame(Image const & img)
   {
     throw runtime_error("Video::addFrame: sws_scale failed");
   }
-
-  /// TMP
-  // _videoFrame->linesize = reinterpret_cast<i32 *>(srcStride);
-  // memcpy(_videoFrame->data, img.data, img.height * img.pitch);
 
   frameCounter++;
 
@@ -657,7 +597,7 @@ void Video::write()
   if(hasAudio) encode(_fmtCtx, nullptr, _audioStream, _audioCodecContext);
 
   /// cleanup
-  av_dict_free(&_opts);
+  // av_dict_free(&_opts);
 
   av_write_trailer(_fmtCtx);
 
