@@ -360,7 +360,7 @@ void Video::addFrame(Image const & img)
       // _audioCodecContext->bit_rate     = inAudioCodecContext->bit_rate;
 
       _audioCodecContext->time_base.num = 1;
-      _audioCodecContext->time_base.den = inAudioCodecContext->sample_rate;  //_fps
+      _audioCodecContext->time_base.den = inAudioCodecContext->sample_rate;
 #endif
 
       AVChannelLayout outChannelLayout;
@@ -431,7 +431,6 @@ void Video::addFrame(Image const & img)
         
         i32 j, i, v;
         i16 * q = reinterpret_cast<i16 *>(inFrame->data[0]);
-
         for(j = 0; j < inFrame->nb_samples; j++)
         {
           v = static_cast<i32>(sin(t) * 10000);
@@ -463,7 +462,6 @@ void Video::addFrame(Image const & img)
 
         _audioFrames.emplace_back(audioFrame);
       }
-
 #else
       while(true)
       {
@@ -533,8 +531,6 @@ void Video::addFrame(Image const & img)
 
     if(_avFormatStr == "h264") av_dict_set(&_fmtCtx->metadata, "encoder", "H.264", 0);
 
-    // _videoCodecContext->chroma_sample_location = AVCHROMA_LOC_CENTER; /// TODO: ???
-
     /// open the file
     if(avio_open(&_fmtCtx->pb, _outPath.c_str(), AVIO_FLAG_WRITE) < 0) { throw runtime_error("avio_open failed"); }
 
@@ -542,7 +538,6 @@ void Video::addFrame(Image const & img)
     _videoStream->avg_frame_rate = {static_cast<i32>(_fps), 1}; /// NOTE: RV requires this othwerwise it will use calculate the framerate incorrectly
 
     /// the following call recomputes_videoStream->time_base
-    // if(avformat_write_header(_fmtCtx, &_opts) < 0)  /// &opt
     if(avformat_write_header(_fmtCtx, &_fmtCtx->metadata) < 0)  /// &opt
     {
       throw runtime_error("avformat_write_header failed");

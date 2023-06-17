@@ -64,7 +64,6 @@ class Video
   std::string _audioPath;
 
   AVFormatContext * _fmtCtx;
-  AVDictionary * _opts;
 
   /// video
   SwsContext * _swsContext;
