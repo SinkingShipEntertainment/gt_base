@@ -151,7 +151,7 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
 {
   av_log_set_callback(&avLogCb);
 
-  string avFormatStr_(_avFormatStr);
+  string avFormatStr_(avFormatStr);
 
   enum AVCodecID avCodecId = AV_CODEC_ID_NONE;
 
@@ -160,7 +160,7 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
     avCodecId = AV_CODEC_ID_H264;
     avFormatStr_ = "mov";  /// mov uses h264 via lib264
   }
-  if(avFormatStr_ == "h265")
+  else if(avFormatStr_ == "h265")
   {
     avCodecId = AV_CODEC_ID_H265;
     avFormatStr_ = "mov";
