@@ -1,6 +1,10 @@
 
 #pragma once
 
+/// TODO: use <inttypes.h>
+/// "For 64-bit systems, the primary Unix 'de facto' standard is LP64 — long and pointer are 64-bit (but int is 32-bit). 
+/// The Windows 64-bit standard is LLP64 — long long and pointer are 64-bit (but long and int are both 32-bit)."
+
 #ifdef ORCA_ARNOLD
   #include <half.hpp>
 #else
