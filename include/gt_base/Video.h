@@ -83,6 +83,7 @@ class Video
   std::vector<AVFrame*> _audioFrames; 
 
   f32 _audioDuration;
+  // i32 _audioFrameIndex;
   // u32 _numAudioFrames;
   // i64 _audioFramePts;
 };
