@@ -82,6 +82,12 @@ void decode(AVCodecContext * codecContext, AVPacket const * avPacket, vector<AVF
     }
     if(ret < 0) { throw runtime_error("Video::decode avcodec_receive_frame failed"); }
   
+    if(codecContext->frame_size != inFrame->nb_samples) /// initial nb_samples is sometimes less and this screws the encoding up (will hang or crash)
+    {
+      av_frame_free(&inFrame);
+      continue;
+    }
+
     nextPts += inFrame->nb_samples;
     frames.emplace_back(inFrame);
   }
@@ -488,7 +494,7 @@ void Video::addFrame(Image const & img)
         // i64 delay = swr_get_delay(_swrContext, srcSampleRate);
         // i64 dstNumSamples   = av_rescale_rnd(delay + inFrame->nb_samples, _audioCodecContext->sample_rate, srcSampleRate, AV_ROUND_UP);
 
-        if(inFrame->nb_samples < maxSamplesPerFrame) continue; /// TODO: cull this earlier
+        // if(inFrame->nb_samples < maxSamplesPerFrame) continue; /// TODO: cull this earlier
 
         i32 dstNumSamples = maxSamplesPerFrame;
         // i32 dstNumSamples = swr_get_out_samples(_swrContext, inFrame->nb_samples);
