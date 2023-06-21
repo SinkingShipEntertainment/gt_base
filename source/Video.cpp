@@ -23,10 +23,8 @@ Logger l("video");  //, "./main.log");
 // #define SYNTH_AUDIO_TEST
 u32 synthBitRate                      = 64000;
 u32 synthSampleRate                   = 44100;
-i32 synthSamplesPerFrame              = 1152; /// 1152 samples per frame for mp3
+i32 synthSamplesPerFrame              = 1152;  /// 1152 samples per frame for mp3
 enum AVSampleFormat synthSampleFormat = AV_SAMPLE_FMT_S16;
-
-
 
 bool encode(AVFormatContext * fmtCtx, AVFrame const * avFrame, AVStream * avStream, AVCodecContext * codecContext)
 {
@@ -43,10 +41,10 @@ bool encode(AVFormatContext * fmtCtx, AVFrame const * avFrame, AVStream * avStre
       av_packet_unref(&avPacket);
       return false;
     }
-    if(ret == AVERROR_EOF) 
-    { 
+    if(ret == AVERROR_EOF)
+    {
       av_packet_unref(&avPacket);
-      return true; 
+      return true;
     }
 
     // avPacket.time_base = codecContext->time_base;
@@ -81,8 +79,8 @@ void decode(AVCodecContext * codecContext, AVPacket const * avPacket, vector<AVF
       return;
     }
     if(ret < 0) { throw runtime_error("Video::decode avcodec_receive_frame failed"); }
-  
-    if(codecContext->frame_size != inFrame->nb_samples) /// initial nb_samples is sometimes less and this screws the encoding up (will hang or crash)
+
+    if(codecContext->frame_size != inFrame->nb_samples)  /// initial nb_samples is sometimes less and this screws the encoding up (will hang or crash)
     {
       av_frame_free(&inFrame);
       continue;
@@ -92,7 +90,6 @@ void decode(AVCodecContext * codecContext, AVPacket const * avPacket, vector<AVF
     frames.emplace_back(inFrame);
   }
 }
-
 
 AVFrame * genAudioFrame(i32 format, AVChannelLayout const & outChannelLayout, i32 sampleRate, i32 numSamples)
 {
@@ -111,7 +108,6 @@ AVFrame * genAudioFrame(i32 format, AVChannelLayout const & outChannelLayout, i3
   return audioFrame;
 }
 
-
 void avLogCb(void * ptr, i32 level, char const * fmt, va_list vargs)
 {
   va_list vl2;
@@ -124,7 +120,14 @@ void avLogCb(void * ptr, i32 level, char const * fmt, va_list vargs)
   if(ffmpegOutput) l.r(line);
 }
 
-Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, i64 const bitRate, i32 const gopSize, i32 const max_b_frames)
+Video::Video(string const & outPath,
+             string const & avFormatStr,
+             i32 const fps,
+             u32 crf,
+             string const & preset,
+             i64 const bitRate,
+             i32 const gopSize,
+             i32 const max_b_frames)
     : frameCounter(0),
       hasAudio(false),
       isInterframe(true),  /// interframe or intraframe: h264 is but dnxhd for example is not
@@ -132,24 +135,28 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
       _outPath(outPath),
       _avFormatStr(avFormatStr),
       _fps(fps),
+      _crf(crf),
+      _preset(preset),
       _bitRate(bitRate),
       _gopSize(gopSize),
       _max_b_frames(max_b_frames),
       _fmtCtx(nullptr),
-      // _opts(nullptr),
+      _opts(nullptr),
       _swsContext(nullptr),
       _videoCodecContext(nullptr),
       _videoStream(nullptr),
       _videoFrame(nullptr),
       _srcPixelFormat(AV_PIX_FMT_RGB24),
-      _dstPixelFormat(AV_PIX_FMT_YUV420P), /// AV_PIX_FMT_YUV420P AV_PIX_FMT_YUV422P AV_PIX_FMT_YUV444P 
+      _dstPixelFormat(AV_PIX_FMT_YUV444P),  /// AV_PIX_FMT_YUV420P AV_PIX_FMT_YUV422P AV_PIX_FMT_YUV444P
       _bt709ColorSpace(false),
       _swrContext(nullptr),
       _audioCodecContext(nullptr),
       _audioStream(nullptr),
       _audioDuration(0)
-      // _audioFrameIndex(0)   
+// _audioFrameIndex(0)
 {
+  // throw runtime_error("omg Video failed");
+
   av_log_set_callback(&avLogCb);
 
   string containerStr(avFormatStr);
@@ -158,13 +165,13 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
 
   if(containerStr == "h264")
   {
-    avCodecId = AV_CODEC_ID_H264;
-    containerStr = "mov";  /// mov uses h264 via lib264
+    avCodecId        = AV_CODEC_ID_H264;
+    containerStr     = "mov";  /// mov uses h264 via lib264
     _bt709ColorSpace = true;
   }
   else if(containerStr == "h265")
   {
-    avCodecId = AV_CODEC_ID_H265;
+    avCodecId    = AV_CODEC_ID_H265;
     containerStr = "mov";
   }
   else if(containerStr == "dnxhd")  /// dnxhd is intraframe
@@ -182,9 +189,13 @@ Video::Video(string const & outPath, string const & avFormatStr, i32 const fps, 
     throw runtime_error("avformat_alloc_output_context2 failed");
   }
 
-  if(avformat_query_codec(_fmtCtx->oformat, avCodecId, FF_COMPLIANCE_NORMAL) < 0)
+  if(avformat_query_codec(_fmtCtx->oformat, avCodecId, FF_COMPLIANCE_NORMAL) < 0) { throw runtime_error(f("unsupported format: %") % containerStr); }
+
+  if(containerStr == "mov")
   {
-    throw runtime_error(f("unsupported format: %") % containerStr);
+    string crfStr(f("%") % _crf);
+    av_dict_set(&_opts, "crf", crfStr.c_str(), 0);
+    av_dict_set(&_opts, "preset", _preset.c_str(), 0);
   }
 }
 
@@ -197,9 +208,9 @@ Video::~Video()
 /// @param filePath
 void Video::addAudio(string const & filePath, u32 numFrames)
 {
-  _audioPath = filePath; /// TODO: validate audio file path
-  _audioDuration = static_cast<f32>(numFrames) / static_cast<f32>(_fps);
-  hasAudio = true;
+  // _audioPath = filePath; /// TODO: validate audio file path
+  // _audioDuration = static_cast<f32>(numFrames) / static_cast<f32>(_fps);
+  // hasAudio = true;
 }
 
 void Video::addFrame(Image const & img)
@@ -215,7 +226,7 @@ void Video::addFrame(Image const & img)
 
     _videoCodecContext = avcodec_alloc_context3(videoCodec);
     if(!_videoCodecContext) { throw runtime_error("avcodec_alloc_context3 failed"); }
-    
+
     _videoCodecContext->codec_id = _fmtCtx->oformat->video_codec;
     _videoCodecContext->bit_rate = _bitRate;
 
@@ -240,15 +251,15 @@ void Video::addFrame(Image const & img)
 
     if(_bt709ColorSpace)
     {
-      _videoFrame->colorspace = AVCOL_SPC_BT709;
-      _videoFrame->color_primaries = AVCOL_PRI_BT709 ;
-      _videoFrame->color_trc = AVCOL_TRC_BT709;
-      _videoFrame->color_range = AVCOL_RANGE_JPEG; 
+      _videoFrame->colorspace      = AVCOL_SPC_BT709;
+      _videoFrame->color_primaries = AVCOL_PRI_BT709;
+      _videoFrame->color_trc       = AVCOL_TRC_BT709;
+      _videoFrame->color_range     = AVCOL_RANGE_JPEG;
       _videoFrame->chroma_location = AVCHROMA_LOC_LEFT;
     }
 
     l.r("\n");
-    
+
     _videoCodecContext->width  = img.width;
     _videoCodecContext->height = img.height;
 
@@ -257,14 +268,14 @@ void Video::addFrame(Image const & img)
     if(img.numComps == 4) { _srcPixelFormat = AV_PIX_FMT_RGBA; }
     _videoCodecContext->pix_fmt = _dstPixelFormat;
 
-    _videoCodecContext->colorspace = _videoFrame->colorspace ; 
-    _videoCodecContext->color_primaries = _videoFrame->color_primaries;  
-    _videoCodecContext->color_trc = _videoFrame->color_trc;
-    _videoCodecContext->color_range = _videoFrame->color_range; 
+    _videoCodecContext->colorspace             = _videoFrame->colorspace;
+    _videoCodecContext->color_primaries        = _videoFrame->color_primaries;
+    _videoCodecContext->color_trc              = _videoFrame->color_trc;
+    _videoCodecContext->color_range            = _videoFrame->color_range;
     _videoCodecContext->chroma_sample_location = _videoFrame->chroma_location;
 
-    if(avcodec_open2(_videoCodecContext, videoCodec, nullptr) < 0) { throw runtime_error("avcodec_open2 failed"); }
-    // if(avcodec_open2(_videoCodecContext, videoCodec, &_opts) < 0) { throw runtime_error("avcodec_open2 failed"); }
+    if(avcodec_open2(_videoCodecContext, videoCodec, &_opts) < 0) { throw runtime_error("avcodec_open2 failed"); }
+    // if(avcodec_open2(_videoCodecContext, videoCodec, nullptr) < 0) { throw runtime_error("avcodec_open2 failed"); }
 
     _videoFrame->width  = _videoCodecContext->width;
     _videoFrame->height = _videoCodecContext->height;
@@ -284,28 +295,24 @@ void Video::addFrame(Image const & img)
     if(_bt709ColorSpace)
     {
       i32 in_full, out_full, brightness, contrast, saturation;
-      i32 const * inv_table, * table;
+      i32 const *inv_table, *table;
 
-      sws_getColorspaceDetails(_swsContext, (i32 **)&inv_table, &in_full,
-                                  (i32 **)&table, &out_full,
-                                  &brightness, &contrast, &saturation);
+      sws_getColorspaceDetails(_swsContext, (i32 **)&inv_table, &in_full, (i32 **)&table, &out_full, &brightness, &contrast, &saturation);
 
       table = sws_getCoefficients(AVCOL_SPC_BT709);
 
       out_full = _videoCodecContext->color_range;
 
-      sws_setColorspaceDetails(_swsContext, inv_table, in_full,
-                                  table, out_full,
-                                  brightness, contrast, saturation);
+      sws_setColorspaceDetails(_swsContext, inv_table, in_full, table, out_full, brightness, contrast, saturation);
     }
 
     /// audio initialization
-    
+
     if(hasAudio)
     {
       if(_fmtCtx->oformat->audio_codec == AV_CODEC_ID_NONE) { throw runtime_error("Video::addFrame: format doesn't support audio"); }
 
-    // #ifndef SYNTH_AUDIO_TEST
+      // #ifndef SYNTH_AUDIO_TEST
       /// in audio
       AVFormatContext * inAudioFmtCtx = nullptr;
       if(avformat_open_input(&inAudioFmtCtx, _audioPath.c_str(), NULL, NULL) < 0)
@@ -315,7 +322,7 @@ void Video::addFrame(Image const & img)
       if(avformat_find_stream_info(inAudioFmtCtx, NULL) < 0) { throw runtime_error("Video::addFrame: avformat_find_stream_info failed"); }
 
       AVCodec const * inAudioCodec = nullptr;
-      i32 audioStreamId           = av_find_best_stream(inAudioFmtCtx, AVMEDIA_TYPE_AUDIO, -1, -1, &inAudioCodec, 0);
+      i32 audioStreamId            = av_find_best_stream(inAudioFmtCtx, AVMEDIA_TYPE_AUDIO, -1, -1, &inAudioCodec, 0);
       if(audioStreamId < 0) { throw runtime_error("Video::addFrame: av_find_best_stream failed"); }
 
       AVStream * inAudioAvStream = inAudioFmtCtx->streams[audioStreamId];
@@ -323,27 +330,27 @@ void Video::addFrame(Image const & img)
       AVCodecContext * inAudioCodecContext = avcodec_alloc_context3(inAudioCodec);
       if(!inAudioCodecContext) { throw runtime_error("Video::addFrame: avcodec_alloc_context3 failed"); }
       avcodec_parameters_to_context(inAudioCodecContext, inAudioAvStream->codecpar);
-      if(avcodec_open2(inAudioCodecContext, inAudioCodec, NULL) < 0) { throw runtime_error("Video::addFrame: avcodec_open2 failed"); }
+      if(avcodec_open2(inAudioCodecContext, inAudioCodec, &_opts) < 0) { throw runtime_error("Video::addFrame: avcodec_open2 failed"); }
       /// end of input audio
-    // #endif
+      // #endif
 
       /// out audio
       AVCodec const * audioCodec = avcodec_find_encoder(_fmtCtx->oformat->audio_codec);
       if(!audioCodec) { throw runtime_error("Video::addFrame: avcodec_find_encoder failed"); }
 
-      _audioCodecContext = avcodec_alloc_context3(audioCodec);
+      _audioCodecContext             = avcodec_alloc_context3(audioCodec);
       _audioCodecContext->sample_fmt = audioCodec->sample_fmts ? audioCodec->sample_fmts[0] : AV_SAMPLE_FMT_FLTP;
 
       i32 srcSampleRate = 0;
       i64 srcBitRate    = 0;
-      
-    #ifdef SYNTH_AUDIO_TEST
+
+#ifdef SYNTH_AUDIO_TEST
       srcSampleRate = synthSampleRate;
       srcBitRate    = synthBitRate;
-    #else
+#else
       srcSampleRate = inAudioCodecContext->sample_rate;
       srcBitRate    = inAudioCodecContext->bit_rate;
-    #endif
+#endif
 
       bool supportedSampleRate = false;
       for(i32 i = 0; audioCodec->supported_samplerates[i]; i++)
@@ -355,12 +362,12 @@ void Video::addFrame(Image const & img)
         }
       }
       if(!supportedSampleRate) { throw runtime_error("Video::addFrame: unsupported sample rate"); }
-  
-      _audioCodecContext->sample_rate = srcSampleRate;
-      _audioCodecContext->bit_rate    = srcBitRate;
+
+      _audioCodecContext->sample_rate   = srcSampleRate;
+      _audioCodecContext->bit_rate      = srcBitRate;
       _audioCodecContext->time_base.num = 1;
       _audioCodecContext->time_base.den = srcSampleRate;
-      
+
       AVChannelLayout outChannelLayout;
       outChannelLayout.order       = AV_CHANNEL_ORDER_NATIVE;
       outChannelLayout.u.mask      = AV_CH_LAYOUT_STEREO;
@@ -386,38 +393,34 @@ void Video::addFrame(Image const & img)
 
       if(_fmtCtx->oformat->flags & AVFMT_GLOBALHEADER) _audioCodecContext->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
 
-    #ifdef SYNTH_AUDIO_TEST
+#ifdef SYNTH_AUDIO_TEST
       if(swr_alloc_set_opts2(&_swrContext, &_audioCodecContext->ch_layout, _audioCodecContext->sample_fmt, _audioCodecContext->sample_rate,
                              &_audioCodecContext->ch_layout, synthSampleFormat, _audioCodecContext->sample_rate, 0, nullptr) < 0)
-    #else
+#else
       if(swr_alloc_set_opts2(&_swrContext, &_audioCodecContext->ch_layout, _audioCodecContext->sample_fmt, _audioCodecContext->sample_rate,
                              &inAudioCodecContext->ch_layout, inAudioCodecContext->sample_fmt, inAudioCodecContext->sample_rate, 0, nullptr) < 0)
-    #endif
+#endif
       {
         throw runtime_error("Video::addFrame: swr_alloc_set_opts2 failed");
       }
 
       if(swr_init(_swrContext) < 0) { throw runtime_error("Video::addFrame: swr_init failed"); }
 
-
       vector<AVFrame *> inFrames;
 
-    #ifdef SYNTH_AUDIO_TEST /// generate audio frames
-      f32 t       = 0;
-      f32 tincr   = 2 * M_PI * 110.0 / _audioCodecContext->sample_rate;
-      f32 const tincr2  = 2 * M_PI * 110.0 / _audioCodecContext->sample_rate / _audioCodecContext->sample_rate;
-      i64 nextPts = 0;
+#ifdef SYNTH_AUDIO_TEST  /// generate audio frames
+      f32 t            = 0;
+      f32 tincr        = 2 * M_PI * 110.0 / _audioCodecContext->sample_rate;
+      f32 const tincr2 = 2 * M_PI * 110.0 / _audioCodecContext->sample_rate / _audioCodecContext->sample_rate;
+      i64 nextPts      = 0;
 
       while(true)
       {
-        if(av_compare_ts(nextPts, _audioCodecContext->time_base, _audioDuration, {1, 1}) > 0) 
-        { 
-          break; 
-        }
+        if(av_compare_ts(nextPts, _audioCodecContext->time_base, _audioDuration, {1, 1}) > 0) { break; }
 
         AVFrame * inFrame = genAudioFrame(synthSampleFormat, outChannelLayout, synthSampleRate, synthSamplesPerFrame);
         if(!inFrame) { throw runtime_error("genAudioFrame failed"); }
-        
+
         i32 j, i, v;
         i16 * q = reinterpret_cast<i16 *>(inFrame->data[0]);
         for(j = 0; j < inFrame->nb_samples; j++)
@@ -435,23 +438,20 @@ void Video::addFrame(Image const & img)
         inFrames.emplace_back(inFrame);
       }
 
-    #else /// read audio frames from input file
+#else  /// read audio frames from input file
 
       AVCodecParserContext * parser = av_parser_init(inAudioCodec->id);
       if(!parser) { throw runtime_error("av_parser_init failed"); }
 
       AVPacket * inPacket = av_packet_alloc();
-      if(!inPacket) { throw runtime_error("av_packet_alloc failed"); }    
+      if(!inPacket) { throw runtime_error("av_packet_alloc failed"); }
 
       i64 nextPts = 0;
-      i32 ret = 0;
+      i32 ret     = 0;
       // u8 data[AVCODEC_MAX_AUDIO_FRAME_SIZE];
       while(true)
       {
-        if(av_compare_ts(nextPts, _audioCodecContext->time_base, _audioDuration, {1, 1}) > 0) 
-        { 
-          break; 
-        }
+        if(av_compare_ts(nextPts, _audioCodecContext->time_base, _audioDuration, {1, 1}) > 0) { break; }
 
         // ret = av_parser_parse2(parser, inAudioContext, &inPacket->data, &inPacket->size,
         //                        data, data_size,
@@ -481,12 +481,12 @@ void Video::addFrame(Image const & img)
 
       av_packet_free(&inPacket);
 
-    #endif  
+#endif
 
       avcodec_free_context(&inAudioCodecContext);
-      avformat_free_context(inAudioFmtCtx);   
+      avformat_free_context(inAudioFmtCtx);
 
-      // i32 maxDestSamples = av_rescale_rnd(src_nb_samples, dst_rate, src_rate, AV_ROUND_UP);  
+      // i32 maxDestSamples = av_rescale_rnd(src_nb_samples, dst_rate, src_rate, AV_ROUND_UP);
 
       i32 sampleCount = 0;
       for(auto const & inFrame : inFrames)
@@ -499,16 +499,14 @@ void Video::addFrame(Image const & img)
         i32 dstNumSamples = maxSamplesPerFrame;
         // i32 dstNumSamples = swr_get_out_samples(_swrContext, inFrame->nb_samples);
         // if(dstNumSamples > maxSamplesPerFrame) dstNumSamples = maxSamplesPerFrame;
-        
-        AVFrame * audioFrame = genAudioFrame(_audioCodecContext->sample_fmt, _audioCodecContext->ch_layout, _audioCodecContext->sample_rate, dstNumSamples);
-    
+
+        AVFrame * audioFrame =
+            genAudioFrame(_audioCodecContext->sample_fmt, _audioCodecContext->ch_layout, _audioCodecContext->sample_rate, dstNumSamples);
+
         if(av_frame_make_writable(audioFrame) < 0) { throw runtime_error("Video::genAudioFrame: av_frame_make_writable failed"); }
 
         i32 ret = swr_convert(_swrContext, audioFrame->data, dstNumSamples, (u8 const **)inFrame->data, inFrame->nb_samples);
-        if(ret < 0)
-        {
-          throw runtime_error("Video::addFrame: swr_convert failed");
-        }
+        if(ret < 0) { throw runtime_error("Video::addFrame: swr_convert failed"); }
         // audioFrame->nb_samples = ret;
 
         audioFrame->pts = sampleCount;
@@ -518,9 +516,8 @@ void Video::addFrame(Image const & img)
       }
 
       /// flush the transcoder
-      // AVFrame * audioFrame = genAudioFrame(_audioCodecContext->sample_fmt, _audioCodecContext->ch_layout, _audioCodecContext->sample_rate, maxSamplesPerFrame);
-      // ret = swr_convert(_swrContext, audioFrame->data, _audioCodecContext->frame_size, 0, 0);
-      // if(ret > 0)
+      // AVFrame * audioFrame = genAudioFrame(_audioCodecContext->sample_fmt, _audioCodecContext->ch_layout, _audioCodecContext->sample_rate,
+      // maxSamplesPerFrame); ret = swr_convert(_swrContext, audioFrame->data, _audioCodecContext->frame_size, 0, 0); if(ret > 0)
       // {
       //   audioFrame->pts = sampleCount;
       //   _audioFrames.emplace_back(audioFrame);
@@ -529,7 +526,6 @@ void Video::addFrame(Image const & img)
       // {
       //   av_frame_free(&audioFrame);
       // }
-      
 
       /// clean up in audio
       for(AVFrame * inFrame : inFrames)
@@ -546,7 +542,7 @@ void Video::addFrame(Image const & img)
     if(avio_open(&_fmtCtx->pb, _outPath.c_str(), AVIO_FLAG_WRITE) < 0) { throw runtime_error("avio_open failed"); }
 
     /// enforce framerate
-    _videoStream->avg_frame_rate = {static_cast<i32>(_fps), 1}; /// NOTE: RV requires this othwerwise it will use calculate the framerate incorrectly
+    _videoStream->avg_frame_rate = {static_cast<i32>(_fps), 1};  /// NOTE: RV requires this othwerwise it will use calculate the framerate incorrectly
 
     /// the following call recomputes_videoStream->time_base
     if(avformat_write_header(_fmtCtx, &_fmtCtx->metadata) < 0)  /// &opt
@@ -575,19 +571,13 @@ void Video::addFrame(Image const & img)
 
   if(hasAudio && _audioFrames.size() > 0)
   {
-    while(true) /// add some audio frames
+    while(true)  /// add some audio frames
     {
-      if(_audioFrames.size() == 0) 
-      { 
-        break; 
-      }
+      if(_audioFrames.size() == 0) { break; }
 
       AVFrame * audioFrame = _audioFrames.front();
       // AVFrame * audioFrame = _audioFrames[_audioFrameIndex++];
-      if(av_compare_ts(audioFrame->pts, _audioCodecContext->time_base, _videoFrame->pts, _videoCodecContext->time_base) > 0) 
-      { 
-        break; 
-      }
+      if(av_compare_ts(audioFrame->pts, _audioCodecContext->time_base, _videoFrame->pts, _videoCodecContext->time_base) > 0) { break; }
 
       encode(_fmtCtx, audioFrame, _audioStream, _audioCodecContext);
       av_frame_free(&audioFrame);
@@ -603,7 +593,7 @@ void Video::write()
   if(hasAudio) encode(_fmtCtx, nullptr, _audioStream, _audioCodecContext);
 
   /// cleanup
-  // av_dict_free(&_opts);
+  av_dict_free(&_opts);
 
   av_write_trailer(_fmtCtx);
 

@@ -30,7 +30,7 @@ class Video
   /// @param bitRate assumed to be in bytes
   /// @param gopSize 
   /// @param max_b_frames 
-  Video(std::string const & outPath, std::string const & avFormatStr, i32 const fps, i64 bitRate, i32 gopSize, i32 max_b_frames);
+  Video(std::string const & outPath, std::string const & avFormatStr, i32 const fps, u32 crf, std::string const & preset, i64 bitRate, i32 gopSize, i32 max_b_frames);
 
   virtual ~Video();
 
@@ -57,6 +57,8 @@ class Video
   std::string _outPath;
   std::string _avFormatStr;
   i32 _fps;
+  u32 _crf;
+  std::string _preset;
   i64 _bitRate;
   i32 _gopSize;
   i32 _max_b_frames;
@@ -64,6 +66,8 @@ class Video
   std::string _audioPath;
 
   AVFormatContext * _fmtCtx;
+
+  AVDictionary * _opts;
 
   /// video
   SwsContext * _swsContext;

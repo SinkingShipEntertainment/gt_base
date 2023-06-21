@@ -22,7 +22,9 @@ Logger::~Logger()
 {
   if(_logFile.is_open())
   {
-    // _logFile.flush(); /// this might be crashing maya
+  #ifndef IN_MAYA
+    _logFile.flush(); /// NOTE: this might be crashing maya
+  #endif
     _logFile.close();
   }
 }
@@ -31,8 +33,10 @@ void Logger::setLogPath(string const & filePath)
 {
   if(_logFile.is_open()) 
   { 
-    _logFile.flush();
-  _logFile.close(); 
+  #ifndef IN_MAYA
+    _logFile.flush(); /// NOTE: this might be crashing maya
+  #endif
+    _logFile.close(); 
   }
 
   _logFile.open(filePath.c_str(), ios::out | ios::trunc);
