@@ -1,8 +1,8 @@
 
 #pragma once
 
-#include "gt_base/types.h"
 #include "gt_base/Image.h"
+#include "gt_base/types.h"
 extern "C"
 {
 #include <libavcodec/avcodec.h>
@@ -11,6 +11,7 @@ extern "C"
 #include <libavutil/opt.h>
 #include <libswscale/swscale.h>
 }
+// #include <exception>
 #include <string>
 
 class SwrContext;
@@ -20,26 +21,48 @@ namespace gt
 
 class Image;
 
+class gt_video_exception : public std::exception
+{
+ public:
+  gt_video_exception(std::string const & msg) : _msg(msg) {}
+
+  i8 const * what() const
+  {
+    return _msg.c_str();
+    // return const_cast<i8*>(_msg.c_str());
+  }
+
+  std::string _msg;
+};
+
 class Video
 {
  public:
   /// @brief constructor
-  /// @param outPath 
-  /// @param avFormatStr 
-  /// @param fps 
+  /// @param outPath
+  /// @param codecStr
+  /// @param fps
   /// @param bitRate assumed to be in bytes
-  /// @param gopSize 
-  /// @param max_b_frames 
-  Video(std::string const & outPath, std::string const & avFormatStr, i32 const fps, u32 crf, std::string const & preset, i64 bitRate, i32 gopSize, i32 max_b_frames);
+  /// @param gopSize
+  /// @param max_b_frames
+  Video(std::string const & outPath,
+        std::string const & codecStr,
+        std::string const & pixelFormat,
+        i32 const fps,
+        u32 crf,
+        std::string const & preset,
+        i64 bitRate,
+        i32 gopSize,
+        i32 max_b_frames);
 
   virtual ~Video();
 
   /// @brief add audio to the video, currently can only add one audio once per Video instance
-  /// @param filePath 
+  /// @param filePath
   void addAudio(std::string const & filePath, u32 numFrames);
 
-  /// @brief 
-  /// @param img 
+  /// @brief
+  /// @param img
   void addFrame(Image const & img);
 
   /// @brief writes the video to the file specified with the outPath argument in the constructor
@@ -51,11 +74,9 @@ class Video
   bool isInterframe;
 
  private:
-
-  
   bool _written;
   std::string _outPath;
-  std::string _avFormatStr;
+  std::string _codecStr;
   i32 _fps;
   u32 _crf;
   std::string _preset;
@@ -74,7 +95,7 @@ class Video
   AVCodecContext * _videoCodecContext;
   AVStream * _videoStream;
   AVFrame * _videoFrame;
-  
+
   AVPixelFormat _srcPixelFormat;
   AVPixelFormat _dstPixelFormat;
 
@@ -84,7 +105,7 @@ class Video
   SwrContext * _swrContext;
   AVCodecContext * _audioCodecContext;
   AVStream * _audioStream;
-  std::vector<AVFrame*> _audioFrames; 
+  std::vector<AVFrame *> _audioFrames;
 
   f32 _audioDuration;
   // i32 _audioFrameIndex;
