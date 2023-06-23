@@ -32,6 +32,13 @@ class Image
     UNDEFINED
   };
 
+  enum Scale
+  {
+    NEAREST,
+    BILINEAR,
+    BICUBIC
+  };
+
   struct Channel
   {
     u8 * data() {return _data.data();}
@@ -96,7 +103,7 @@ class Image
 
   void convert(u8 numComps, u8 bytesPerComp, u8 type);
 
-  void setSize(u32 w, u32 h, bool preserve = false);
+  void setSize(u32 w, u32 h, bool preserve = false, u8 algorithm = NEAREST);
 
   void insert(Image const & iImg, u32 posX, u32 posY);
 

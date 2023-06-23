@@ -9,6 +9,7 @@
     "../source/types/f32x2.cpp",
     "../source/types/f32x3.cpp",
     "../source/types/f32x4.cpp",
+    "../source/types/f32x3x3.cpp",
     "../source/functions.cpp",
     "../source/string.cpp",
     "../source/filesystem.cpp",
@@ -51,8 +52,10 @@
       "postproc",
       "x264",
       "avcodec",
-      "avformat"
+      "avformat",
       
+      "image-resampler"
+
       // "gt_base" 
     ],
     "windows": [
@@ -69,47 +72,12 @@
     "linux": [
       "dl"
     ]
-
-    // "all": [
-    //   "zlib",
-    //   "deflate",
-    //   "jpeg",
-    //   "spng",
-    //   "tiff",
-    //   "tga",
-    //   "hdrloader",
-    //   "Iex",
-    //   "IlmThread",
-    //   "Imath",
-    //   "OpenEXRUtil",
-    //   "OpenEXRCore",
-    //   "OpenEXR",
-    //   "freetype",
-    //   "pystring",
-    //   "expat",
-    //   "yaml-cpp",
-    //   "Half",
-    //   "OpenColorIO"
-    // ],
-    // "windows": [
-    //   "ws2_32",
-    //   "Secur32",
-    //   "strmbase",
-    //   "Mfplat",
-    //   "mfuuid",
-    //   "Ole32",
-    //   "User32",
-    //   "Bcrypt",
-    //   "Gdi32"
-    // ],
-    // "linux": [
-    //   "dl"
-    // ]
   },
   "defines": {
     "all": [
       "OpenColorIO_SKIP_IMPORTS",
-      "SPNG_STATIC"
+      "SPNG_STATIC",
+      "USE_IMG_RESAMPLER"
     ],
     "debug": "GT_DEBUG"
   },
@@ -131,7 +99,8 @@
       "$EXTERNAL/include",
       "$EXTERNAL/include/Imath",
       "$EXTERNAL/include/freetype",
-      "$EXTERNAL/include/ffmpeg"
+      "$EXTERNAL/include/ffmpeg",
+      "C:/Users/tom/work_offline/packages/image-resampler/Source" /// TMP
     ],
     "linux": "$EXTERNAL/include/jpeg",
     "windows": "$EXTERNAL/include/jpeg_windows"

@@ -683,7 +683,7 @@ void Image::convert(u8 numComps, u8 bytesPerComp, u8 type)
   if(!_converted) throw runtime_error("Image::convert: unsupported conversion");
 }
 
-void Image::setSize(u32 w, u32 h, bool preserve)
+void Image::setSize(u32 w, u32 h, bool preserve, u8 algorithm)
 {
   if(preserve)
   {
@@ -703,38 +703,101 @@ void Image::setSize(u32 w, u32 h, bool preserve)
       f32x2 scale((f32)oldImage.width / (f32)this->width, (f32)oldImage.height / (f32)this->height); /// scale to map new to old: > 1 means reducing size
 
       /// nearest pixel algorithm
-      for(u32 y = 0; y < this->height; y++)
+      if(algorithm == Image::NEAREST)
       {
-        u32 byteOffset = y * this->pitch;
-
-        u32 oldY = round((f32)y * scale.y);
-        u32 oldRowByteOffset = oldY * oldImage.pitch;
-        
-        for(u32 x = 0; x < this->width; x++)
+        for(u32 y = 0; y < this->height; y++)
         {
-          // if((byteOffset + this->bytesPerPixel) > this->bytesTotal )
-          // {
-          //   throw runtime_error(f("Image::setSize: byteOffset + this->bytesPerPixel: % > bytestTotal: %") % (byteOffset + this->bytesPerPixel) % this->bytesTotal);
-          // }
+          u32 sY = round((f32)y * scale.y);
 
-          u32 oldX = round((f32)x * scale.x);
-          u32 oldByteOffset = oldRowByteOffset + oldX * this->bytesPerPixel;
+          u32 byteOffset = y * this->pitch;
 
-          u32 oldBytesOffsetCheck = oldByteOffset + this->bytesPerPixel;
-
-          if(oldBytesOffsetCheck > oldImage.bytesTotal) oldByteOffset = oldImage.bytesTotal - this->bytesPerPixel;
-          // if(oldBytesOffsetCheck > oldImage.bytesTotal )
-          // {
-          //   throw runtime_error(f("Image::setSize: oldByteOffset + this->bytesPerPixel: % > bytestTotal: %") % oldBytesOffsetCheck % oldImage.bytesTotal);
-          // }
-
-          memcpy(&this->data[byteOffset], &oldImage.data[(u32)oldByteOffset], this->bytesPerPixel);
+          u32 oldRowByteOffset = sY * oldImage.pitch;
           
-          byteOffset += this->bytesPerPixel;
+          for(u32 x = 0; x < this->width; x++)
+          {
+            // if((byteOffset + this->bytesPerPixel) > this->bytesTotal )
+            // {
+            //   throw runtime_error(f("Image::setSize: byteOffset + this->bytesPerPixel: % > bytestTotal: %") % (byteOffset + this->bytesPerPixel) % this->bytesTotal);
+            // }
 
-          // u32 oldX = round((f32)x * scale.x);
-          // oldByteOffset += oldX * this->bytesPerPixel;
+            u32 sX = round((f32)x * scale.x);
+            u32 oldByteOffset = oldRowByteOffset + sX * this->bytesPerPixel;
+
+            u32 oldBytesOffsetCheck = oldByteOffset + this->bytesPerPixel;
+
+            if(oldBytesOffsetCheck > oldImage.bytesTotal) oldByteOffset = oldImage.bytesTotal - this->bytesPerPixel;
+            // if(oldBytesOffsetCheck > oldImage.bytesTotal )
+            // {
+            //   throw runtime_error(f("Image::setSize: oldByteOffset + this->bytesPerPixel: % > bytestTotal: %") % oldBytesOffsetCheck % oldImage.bytesTotal);
+            // }
+
+            memcpy(&this->data[byteOffset], &oldImage.data[(u32)oldByteOffset], this->bytesPerPixel);
+            
+            byteOffset += this->bytesPerPixel;
+
+            // u32 oldX = round((f32)x * scale.x);
+            // oldByteOffset += oldX * this->bytesPerPixel;
+          }
         }
+      }
+      else if(algorithm == Image::BILINEAR)
+      {
+        for(u32 y = 0; y < this->height; y++)
+        {
+          f32 sY = static_cast<f32>(y) * scale.y;
+
+          u32 y1 = static_cast<u32>(floor(sY));
+          u32 y2 = min(this->height, y1 + 1);
+
+          for(u32 x = 0; x < this->width; x++)
+          {
+            f32 sX = static_cast<f32>(x) * scale.x;
+
+            u32 x1 = static_cast<u32>(floor(sX));
+            u32 x2 = min(this->width, x1 + 1);
+            
+            f32x4 pixel1 = oldImage.getPixel(x1, y1);
+            f32x4 pixel2 = oldImage.getPixel(x1, y2);
+            f32x4 pixel3 = oldImage.getPixel(x2, y1);
+            f32x4 pixel4 = oldImage.getPixel(x2, y2);
+
+            f32 dX1 = x2 - x1;
+            f32 dX2 = sX - x1;
+
+            f32x4 lPixel1 = pixel1 + ((pixel3 - pixel1) / dX1) * dX2;
+            f32x4 lPixel2 = pixel2 + ((pixel4 - pixel2) / dX1) * dX2;
+
+            f32x4 finalPixel = lPixel1 + ((lPixel2 - lPixel1) / (y2 - y1)) * (sY - y1);
+
+            this->setPixel(x, y, finalPixel);
+          }
+        }
+      }
+      else if(algorithm == Image::BICUBIC)
+      {
+        u32 kernalSize = 5;
+        vector<f32x4> kernal(kernalSize * kernalSize);
+        for(u32 y = 0; y < 25; y++)
+        {
+          for(u32 x = 0; x < 25; x++)
+          {
+            kernal[y * 5 + x] = f32x4(0.0f);
+          }
+
+          // kernal[i] = f32x4(0.0f);
+        }
+
+        for(u32 y = 0; y < this->height; y++)
+        {
+          f32 sY = static_cast<f32>(y) * scale.y;
+
+          for(u32 x = 0; x < this->width; x++)
+          {
+            f32 sX = static_cast<f32>(x) * scale.x;
+          }
+        }
+        
+
       }
     }
 
@@ -1306,20 +1369,7 @@ void Image::read(string const & filepath, vector<string> attrNames, vector<strin
     fclose(infile);
   }
 
-#if defined(SSE_CENTOS7)
-
-//   /// TOOD: the traditional implementation of png
-//   // else if(ext == ".png")
-//   // {
-//   //   FILE * fp = fopen(filepath.c_str(), "rb");
-//   //   if(!fp) 
-//   //   {
-//   //     throw runtime_error(f("fopen failed for %") % filepath);
-//   //   }
-//   // }
-
-#else
-
+#ifndef SSE_CENTOS7
 
   else if(ext == ".tif" || ext == ".tiff")
   {
