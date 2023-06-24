@@ -129,6 +129,8 @@ Image::~Image() { destroy(); }
 
 void Image::set(u32 w, u32 h, u8 numComps, u8 bytesPerComp, u8 type, bool isDepthBuffer)
 {
+  this->destroy();
+  
   this->width = w;
   this->height = h;
   this->numComps = numComps;

@@ -27,16 +27,23 @@ using namespace std;
 
 Logger gt::l("test");
 
+string imgSrcPath = "C:/Users/tom/work_offline/assets/testing/scalingTests/seqTest.0042.exr";
+vector<string> scaleAlgorithms = {"nearest", "average", "bilinear", "bicubic", "catmul", "mitchell", "spline", "bspline", "lanczos", "lanczos5", "gaussian"};
+
+u32 outWidth = 500;
+u32 outHeight = 500;
+
+
 i32 main(i32 argc, char * argv[])
 {
   try
   {
-    string scaleAlgorithm = "bicubic";
-    u32 outWidth = 500;
-    u32 outHeight = 500;
-
     /// TMP
-    Image img("C:/Users/tom/work_offline/assets/testing/scalingTests/seqTest.0042.exr", {}, {"R", "G", "B", "A"});
+    Image img(imgSrcPath, {}, {"R", "G", "B", "A"});
+
+    for(auto const & scaleAlgorithm: scaleAlgorithms)
+    {
+      Image outImg;
 
     #if defined(USE_IMG_RESAMPLER) /// using open source library https://github.com/ramenhut/image-resampler 
         
@@ -46,9 +53,17 @@ i32 main(i32 argc, char * argv[])
 
       VN_IMAGE_KERNEL_TYPE scaleAlgo;
       if(scaleAlgorithm == "nearest") scaleAlgo = VN_IMAGE_KERNEL_NEAREST;
+      else if(scaleAlgorithm == "average") scaleAlgo = VN_IMAGE_KERNEL_AVERAGE;
       else if(scaleAlgorithm == "bilinear") scaleAlgo = VN_IMAGE_KERNEL_BILINEAR;
       else if(scaleAlgorithm == "bicubic") scaleAlgo = VN_IMAGE_KERNEL_BICUBIC;
       else if(scaleAlgorithm == "catmul") scaleAlgo = VN_IMAGE_KERNEL_CATMULL;
+      else if(scaleAlgorithm == "mitchell") scaleAlgo = VN_IMAGE_KERNEL_MITCHELL;
+      else if(scaleAlgorithm == "spline") scaleAlgo = VN_IMAGE_KERNEL_SPLINE;
+      else if(scaleAlgorithm == "bspline") scaleAlgo = VN_IMAGE_KERNEL_BSPLINE;
+      else if(scaleAlgorithm == "lanczos") scaleAlgo = VN_IMAGE_KERNEL_LANCZOS;
+      else if(scaleAlgorithm == "lanczos5") scaleAlgo = VN_IMAGE_KERNEL_LANCZOS5;
+      else if(scaleAlgorithm == "gaussian") scaleAlgo = VN_IMAGE_KERNEL_GAUSSIAN;
+      // else if(scaleAlgorithm == 
       else
       {
         l.w(f("unknown scale algorithm %, using bilinear") % scaleAlgorithm);
@@ -58,28 +73,31 @@ i32 main(i32 argc, char * argv[])
       CVImage cvOutImg; 
       vnResizeImage(cvInImg, scaleAlgo, outWidth, outHeight, 0, &cvOutImg);
 
-      img.set(outWidth, outHeight, img.bytesPerComp, img.type);
-      memcpy(img.data, cvOutImg.QueryData(), img.bytesTotal);
+      outImg.set(outWidth, outHeight, img.numComps, img.bytesPerComp, img.type);
+      memcpy(outImg.data, cvOutImg.QueryData(), outImg.bytesTotal);
 
       vnDestroyImage(&cvInImg);
       vnDestroyImage(&cvOutImg);
 
     #else
 
+      outImg = img;
+
       u8 scaleAlgo = 0;
       if(scaleAlgorithm == "nearest") scaleAlgo = Image::NEAREST;
       else if(scaleAlgorithm == "bilinear") scaleAlgo = Image::BILINEAR;
       else if(scaleAlgorithm == "bicubic") scaleAlgo = Image::BICUBIC;
-      img.setSize(outWidth, outHeight, true, scaleAlgo);
+      outImg.setSize(outWidth, outHeight, true, scaleAlgo);
 
     #endif
     
-    f32x2 startPos(20, 20);
-    f32x4 bgColor(0.3, 0.3, 0.3, 0.3);
-    Text text(24, "arial", f32x3(1.f, 1.f, 1.f), f("using %") % scaleAlgorithm);
-    text.overlay(img, startPos, true, bgColor, 5.f);
+      f32x2 startPos(20, 20);
+      f32x4 bgColor(0.3, 0.3, 0.3, 0.3);
+      Text text(24, "arial", f32x3(1.f, 1.f, 1.f), f("using %") % scaleAlgorithm);
+      text.overlay(outImg, startPos, true, bgColor, 5.f);
 
-    img.write(f("C:/Users/tom/work_offline/assets/testing/scalingTests/seqTest.0042_%.exr") % scaleAlgorithm);
+      outImg.write(f("C:/Users/tom/work_offline/assets/testing/scalingTests/seqTest.0042_%.exr") % scaleAlgorithm);
+    }
 
     return 0;
 
